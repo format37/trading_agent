@@ -1,3 +1,4 @@
 data/
 tech_prompt.md
 examples/
+__pycache__/

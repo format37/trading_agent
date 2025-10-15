@@ -1,11 +1,158 @@
 import asyncio
-from claude_agent_sdk import ClaudeSDKClient, ClaudeAgentOptions, AssistantMessage, TextBlock, ToolUseBlock
+from claude_agent_sdk import (
+    ClaudeSDKClient,
+    ClaudeAgentOptions,
+    AssistantMessage,
+    SystemMessage,
+    ResultMessage,
+    TextBlock,
+    ThinkingBlock,
+    ToolUseBlock,
+    ToolResultBlock
+)
 from dotenv import load_dotenv
 import os
+import json
 from datetime import datetime, timezone
+
+# Import telemetry module
+from telemetry import get_telemetry_manager
 
 # Load environment variables from .env file
 load_dotenv()
+
+# Initialize telemetry
+telemetry = get_telemetry_manager(service_name="claude-trading-agent")
+
+# ============================================================================
+# Message Display Helpers
+# ============================================================================
+
+def format_timestamp():
+    """Return current UTC timestamp for logging."""
+    return datetime.now(timezone.utc).strftime("%H:%M:%S.%f")[:-3]
+
+def print_separator(char="=", length=80):
+    """Print a separator line."""
+    print(char * length)
+
+def print_section_header(title):
+    """Print a formatted section header."""
+    print(f"\n{'=' * 80}")
+    print(f"  {title}")
+    print(f"{'=' * 80}\n")
+
+def display_thinking(thinking_block: ThinkingBlock):
+    """Display agent's thinking process."""
+    print(f"\n[{format_timestamp()}] 💭 THINKING:")
+    print("-" * 80)
+    # Display thinking with indentation
+    for line in thinking_block.thinking.split('\n'):
+        print(f"  {line}")
+    print("-" * 80)
+
+    # Send telemetry event
+    telemetry.trace_thinking(thinking_block.thinking)
+
+def display_tool_use(tool_block: ToolUseBlock):
+    """Display tool usage with inputs."""
+    print(f"\n[{format_timestamp()}] 🔧 TOOL USE: {tool_block.name}")
+    print(f"  ID: {tool_block.id}")
+    print(f"  Input:")
+    # Pretty print the input
+    input_json = json.dumps(tool_block.input, indent=4)
+    for line in input_json.split('\n'):
+        print(f"    {line}")
+
+    # Send telemetry event
+    telemetry.trace_tool_use(tool_block.name, tool_block.id, tool_block.input)
+
+def display_tool_result(result_block: ToolResultBlock):
+    """Display tool execution results."""
+    print(f"\n[{format_timestamp()}] ✅ TOOL RESULT: {result_block.tool_use_id}")
+    if result_block.is_error:
+        print(f"  ❌ ERROR: {result_block.content}")
+    else:
+        # Handle different content types
+        if isinstance(result_block.content, str):
+            # Truncate very long outputs
+            content = result_block.content
+            if len(content) > 500:
+                print(f"  Result (truncated):")
+                print(f"    {content[:500]}...")
+                print(f"    ... ({len(content)} total characters)")
+            else:
+                print(f"  Result:")
+                for line in content.split('\n')[:20]:  # Limit to 20 lines
+                    print(f"    {line}")
+        elif isinstance(result_block.content, list):
+            print(f"  Result (structured):")
+            for item in result_block.content:
+                print(f"    {item}")
+        else:
+            print(f"  Result: {result_block.content}")
+
+    # Send telemetry event
+    result_summary = str(result_block.content) if result_block.content else ""
+    telemetry.trace_tool_result(
+        result_block.tool_use_id,
+        result_block.is_error if result_block.is_error else False,
+        result_summary
+    )
+
+def display_text(text_block: TextBlock):
+    """Display text content from agent."""
+    print(f"\n[{format_timestamp()}] 💬 RESPONSE:")
+    print(text_block.text)
+
+    # Send telemetry event
+    telemetry.trace_response(text_block.text)
+
+def display_system_message(sys_msg: SystemMessage):
+    """Display system messages."""
+    print(f"\n[{format_timestamp()}] ⚙️  SYSTEM: {sys_msg.subtype}")
+    if sys_msg.data:
+        print(f"  Data: {json.dumps(sys_msg.data, indent=2)}")
+
+    # Send telemetry event
+    telemetry.trace_system_message(sys_msg.subtype, sys_msg.data if sys_msg.data else {})
+
+def display_result(result: ResultMessage):
+    """Display final result with usage statistics."""
+    print_section_header("SESSION RESULT")
+    print(f"Status: {'✅ Success' if not result.is_error else '❌ Error'}")
+    print(f"Duration: {result.duration_ms}ms (API: {result.duration_api_ms}ms)")
+    print(f"Turns: {result.num_turns}")
+    print(f"Session ID: {result.session_id}")
+
+    if result.total_cost_usd:
+        print(f"💰 Cost: ${result.total_cost_usd:.4f}")
+
+    if result.usage:
+        print(f"\n📊 Token Usage:")
+        usage = result.usage
+        if isinstance(usage, dict):
+            for key, value in usage.items():
+                print(f"  {key}: {value}")
+        else:
+            print(f"  {usage}")
+
+    if result.result:
+        print(f"\nResult: {result.result}")
+
+    print_separator()
+
+    # Send telemetry event
+    result_data = {
+        "duration_ms": result.duration_ms,
+        "duration_api_ms": result.duration_api_ms,
+        "num_turns": result.num_turns,
+        "is_error": result.is_error,
+        "session_id": result.session_id,
+        "total_cost_usd": result.total_cost_usd,
+        "usage": result.usage
+    }
+    telemetry.trace_session_result(result_data)
 
 async def main():
     """Conservative Trading Agent with full MCP tool access for market analysis and execution."""
@@ -127,15 +274,27 @@ async def main():
         turn_count = 1
 
         # Process the initial response
-        print(f"\n[Turn {turn_count}] Claude:\n")
-        async for message in client.receive_response():
-            if isinstance(message, AssistantMessage):
-                for block in message.content:
-                    if isinstance(block, TextBlock):
-                        print(block.text)
-                    elif isinstance(block, ToolUseBlock):
-                        if block.name == "mcp__ide__executeCode":
-                            print(f"\n[Executing Python code for analysis]")
+        print(f"\n{'=' * 80}")
+        print(f"[Turn {turn_count}] Agent Response")
+        print(f"{'=' * 80}")
+
+        # Wrap in telemetry trace
+        with telemetry.trace_agent_turn(turn_count):
+            async for message in client.receive_response():
+                if isinstance(message, AssistantMessage):
+                    for block in message.content:
+                        if isinstance(block, ThinkingBlock):
+                            display_thinking(block)
+                        elif isinstance(block, TextBlock):
+                            display_text(block)
+                        elif isinstance(block, ToolUseBlock):
+                            display_tool_use(block)
+                        elif isinstance(block, ToolResultBlock):
+                            display_tool_result(block)
+                elif isinstance(message, SystemMessage):
+                    display_system_message(message)
+                elif isinstance(message, ResultMessage):
+                    display_result(message)
 
         # Interactive conversation loop
         print("\n" + "=" * 80)
@@ -175,19 +334,28 @@ async def main():
                 await client.query(user_input_with_timestamp)
 
                 # Process Claude's response
-                print(f"\n[Turn {turn_count}] Claude:\n")
-                async for message in client.receive_response():
-                    if isinstance(message, AssistantMessage):
-                        for block in message.content:
-                            if isinstance(block, TextBlock):
-                                print(block.text)
-                            elif isinstance(block, ToolUseBlock):
-                                if block.name == "mcp__ide__executeCode":
-                                    print(f"\n[Executing Python code for analysis]")
-                                elif block.name.startswith("mcp__binance"):
-                                    # Show when trading actions are being executed
-                                    action = block.name.replace("mcp__binance__", "").replace("_", " ").title()
-                                    print(f"\n[Executing: {action}]")
+                print(f"\n{'=' * 80}")
+                print(f"[Turn {turn_count}] Agent Response")
+                print(f"{'=' * 80}")
+
+                # Wrap in telemetry trace
+                with telemetry.trace_agent_turn(turn_count):
+                    async for message in client.receive_response():
+                        if isinstance(message, AssistantMessage):
+                            for block in message.content:
+                                if isinstance(block, ThinkingBlock):
+                                    display_thinking(block)
+                                elif isinstance(block, TextBlock):
+                                    display_text(block)
+                                elif isinstance(block, ToolUseBlock):
+                                    display_tool_use(block)
+                                elif isinstance(block, ToolResultBlock):
+                                    display_tool_result(block)
+                        elif isinstance(message, SystemMessage):
+                            display_system_message(message)
+                        elif isinstance(message, ResultMessage):
+                            display_result(message)
+
                 print()  # Add spacing after response
 
             except KeyboardInterrupt:
@@ -200,6 +368,9 @@ async def main():
                 print("Trading session ended.")
                 print("=" * 80)
                 break
+
+    # Shutdown telemetry
+    telemetry.shutdown()
 
 if __name__ == "__main__":
     asyncio.run(main())
