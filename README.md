@@ -179,6 +179,13 @@ Exit triggers:
   - Binance MCP (port 8010)
 - Shared data folder with proper permissions
 
+### MCP Servers
+
+This project utilizes the following Model Context Protocol (MCP) repositories:
+
+- **[mcp-binance](https://github.com/format37/mcp-binance)** - Provides comprehensive Binance exchange integration including spot trading, futures trading, account management, and portfolio analytics
+- **[mcp-polygon](https://github.com/format37/mcp-polygon)** - Delivers market data and technical analysis capabilities through Polygon.io APIs including real-time prices, historical data, and technical indicators
+
 ### Installation
 
 ```bash
