@@ -297,7 +297,13 @@ class TelemetryManager:
                 usage = result_data["usage"]
                 if isinstance(usage, dict):
                     for key, value in usage.items():
-                        attributes[f"session.usage.{key}"] = value
+                        # OpenTelemetry attributes only support simple types
+                        # Convert dict/list values to JSON strings
+                        if isinstance(value, (dict, list)):
+                            import json
+                            attributes[f"session.usage.{key}"] = json.dumps(value)
+                        else:
+                            attributes[f"session.usage.{key}"] = value
 
             current_span.add_event("session.result", attributes=attributes)
 
