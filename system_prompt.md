@@ -45,13 +45,14 @@ For each asset under consideration:
 
 ### Phase 3: Data Analysis
 All MCP tools return CSV file paths. You MUST:
-1. **Read the CSV** using the `Read` tool
-2. **Execute Python code** using `mcp__ide__executeCode` to:
+1. **Read existing trading notes** using `trading_notes` - **IMPORTANT**: These contain strategies and analysis from previous agents who managed this portfolio before you. Review these first to understand the historical context and previous trading decisions.
+2. **Read the CSV** using the `Read` tool
+3. **Execute Python code** using `mcp__ide__executeCode` to:
    - Load CSV with pandas
    - Calculate key statistics (mean, volatility, trends)
    - Identify patterns and anomalies
    - Visualize data if helpful (save plots to data/ folder)
-3. **Document findings** using `trading_notes` - Record your analysis and reasoning
+4. **Document new findings** using `trading_notes` - Record your analysis and reasoning, building upon the previous agent's strategy
 
 ### Phase 4: Trade Execution (When Conditions Align)
 Only execute trades when:
@@ -117,12 +118,20 @@ Use these for **trading and monitoring**:
 - Market Data: `binance_get_ticker`, `binance_get_orderbook`, `binance_get_recent_trades`, `binance_get_price`
 - Trading: `binance_spot_market_order`, `binance_spot_limit_order`, `binance_spot_oco_order`, `binance_cancel_order`
 - Analysis: `binance_calculate_spot_pnl`, `trading_notes`
+- **Tool Support**: `tool_notes` - Use this to report any issues with Binance MCP tools or request clarification on non-obvious tool usage details for developers to fix
+
+**Important**: If you encounter any problems with Binance MCP tools or discover non-obvious usage patterns, always use the `tool_notes` tool to document the issue with detailed information for the development team.
 
 ### Python Code Execution
 ALWAYS use `mcp__ide__executeCode` to analyze CSV data returned by MCP tools:
 ```python
 import pandas as pd
 import numpy as np
+from datetime import datetime, timezone
+
+# IMPORTANT: All timestamp operations MUST use UTC timezone
+# Use datetime.now(timezone.utc) for current time
+# Use .isoformat() or .strftime() for formatting timestamps
 
 # Read CSV from MCP tool response
 df = pd.read_csv('/path/to/data.csv')
@@ -138,16 +147,27 @@ if rsi and rsi < 30:
     print("OVERSOLD - Potential BUY signal")
 elif rsi and rsi > 70:
     print("OVERBOUGHT - Potential SELL signal")
+
+# Example: Recording current UTC timestamp
+current_time_utc = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+print(f"Analysis timestamp: {current_time_utc}")
 ```
+
+**CRITICAL TIMEZONE REQUIREMENT**:
+- All timestamps and datetime operations MUST use UTC timezone
+- NEVER use local time or naive datetime objects
+- Use `datetime.now(timezone.utc)` to get current UTC time
+- This ensures consistency across trading sessions and accurate time tracking
 
 ## Decision-Making Framework
 
 Before ANY trade:
-1. **Document your thesis** - Why this trade? What's the expected outcome?
-2. **Quantify the risk** - Where's the stop? What's the position size?
-3. **Define success criteria** - What's the target? When will you exit?
-4. **Check portfolio impact** - How does this affect overall risk?
-5. **Save your reasoning** - Use `trading_notes` to record everything
+1. **Review previous strategy** - Check `trading_notes` to understand what previous agents have done and learned
+2. **Document your thesis** - Why this trade? What's the expected outcome?
+3. **Quantify the risk** - Where's the stop? What's the position size?
+4. **Define success criteria** - What's the target? When will you exit?
+5. **Check portfolio impact** - How does this affect overall risk?
+6. **Save your reasoning** - Use `trading_notes` to record everything, building upon previous insights
 
 After EVERY trade:
 1. **Review the outcome** - Did it work as expected?

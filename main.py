@@ -2,6 +2,7 @@ import asyncio
 from claude_agent_sdk import ClaudeSDKClient, ClaudeAgentOptions, AssistantMessage, TextBlock, ToolUseBlock
 from dotenv import load_dotenv
 import os
+from datetime import datetime, timezone
 
 # Load environment variables from .env file
 load_dotenv()
@@ -9,14 +10,14 @@ load_dotenv()
 async def main():
     """Conservative Trading Agent with full MCP tool access for market analysis and execution."""
 
-    # Load trading prompt
-    with open("trading_prompt.md", "r") as f:
-        trading_prompt = f.read()
+    # Load system prompt
+    with open("system_prompt.md", "r") as f:
+        system_prompt = f.read()
 
     # Configure options with all MCP tools
     options = ClaudeAgentOptions(
         # System prompt for conservative trading
-        system_prompt=trading_prompt,
+        system_prompt=system_prompt,
 
         # Analysis and utility tools
         allowed_tools=[
@@ -84,6 +85,7 @@ async def main():
             # Binance MCP - Analysis & Risk Management
             "mcp__binance__binance_calculate_spot_pnl",
             "mcp__binance__trading_notes",
+            "mcp__binance__save_tool_notes",
         ],
 
         permission_mode="bypassPermissions",  # Full permissions - no prompts
@@ -114,17 +116,14 @@ async def main():
 
     async with ClaudeSDKClient(options=options) as client:
         # Initial trading prompt
-        initial_prompt = """Please perform a comprehensive market assessment for BTC and ETH:
+        with open("user_prompt.md", "r") as f:
+            user_prompt = f.read()
 
-1. Check current market status and recent crypto news
-2. Analyze top gainers/losers to understand market trends
-3. Review my current account balance and positions
-4. Provide a detailed market assessment with actionable recommendations
-5. Perform a weighted trading strategy based on the analysis
+        # Add current UTC timestamp to the prompt
+        current_utc_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+        user_prompt_with_timestamp = f"Current UTC Time: {current_utc_time}\n\n{user_prompt}"
 
-Remember to read and analyze all CSV data returned by the MCP tools using Python."""
-
-        await client.query(initial_prompt)
+        await client.query(user_prompt_with_timestamp)
         turn_count = 1
 
         # Process the initial response
@@ -169,9 +168,11 @@ Remember to read and analyze all CSV data returned by the MCP tools using Python
                     print("\n[Task interrupted!]\n")
                     continue
 
-                # Send user's response to Claude
+                # Send user's response to Claude with UTC timestamp
                 turn_count += 1
-                await client.query(user_input)
+                current_utc_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+                user_input_with_timestamp = f"Current UTC Time: {current_utc_time}\n\n{user_input}"
+                await client.query(user_input_with_timestamp)
 
                 # Process Claude's response
                 print(f"\n[Turn {turn_count}] Claude:\n")
