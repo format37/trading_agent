@@ -110,7 +110,7 @@ For a professional observability dashboard, you can use SigNoz, Grafana, or othe
    ```
 
 5. **View traces:**
-   - Open http://localhost:3301
+   - Open http://localhost:8080
    - Navigate to "Traces" section
    - Explore your agent's execution traces
 
@@ -226,7 +226,7 @@ OTEL_EXPORTER_TYPE=otlp-grpc
 OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
 ```
 
-**Access:** http://localhost:3301
+**Access:** http://localhost:8080
 
 ### Option 2: Grafana Cloud
 
