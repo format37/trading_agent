@@ -155,7 +155,7 @@ def display_result(result: ResultMessage):
     telemetry.trace_session_result(result_data)
 
 async def main():
-    """Conservative Trading Agent with full MCP tool access for market analysis and execution."""
+    """Trading Agent with full MCP tool access for market analysis and execution."""
 
     # Load system prompt
     with open("system_prompt.md", "r") as f:
@@ -247,24 +247,28 @@ async def main():
             "binance": {
                 "type": "http",
                 "url": "http://localhost:8010/binance/"
+            },
+            "perplexity": {
+                "type": "http",
+                "url": "http://localhost:8011/perplexity/"
             }
         }
     )
 
-    print("=" * 80)
-    print("Conservative Cryptocurrency Trading Agent")
-    print("=" * 80)
-    print("\nInitializing trading agent with:")
-    print("  - Full Polygon MCP access (market data, technicals, news)")
-    print("  - Full Binance MCP access (account, trading, risk management)")
-    print("  - Conservative portfolio management system prompt")
-    print("  - One-day trading horizon\n")
     print("=" * 80)
 
     async with ClaudeSDKClient(options=options) as client:
         # Initial trading prompt
         with open("user_prompt.md", "r") as f:
             user_prompt = f.read()
+
+        # Load entrance prompt (optional trigger for market check)
+        with open("entrance.md", "r") as f:
+            entrance_prompt = f.read()
+
+        # Optionally append entrance prompt to trigger market action check
+        # To enable: user_prompt = f"{user_prompt}\n\n{entrance_prompt}"
+        # For now, entrance_prompt is available but not automatically appended
 
         # Add current UTC timestamp to the prompt
         current_utc_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")

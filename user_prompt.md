@@ -9,11 +9,11 @@ Analyze the entire cryptocurrency market, not limited to specific coins:
 5. Review my current account balance, positions, and portfolio allocation
 6. Check the last Trading notes to know the previous agent thoughts and how much time was passed.
 
-## Risk Profile: Moderate/Balanced
-- **Growth-Preservation Balance**: Equal weight between capital growth and risk management
-- **Volatility Tolerance**: Medium - comfortable with normal crypto market fluctuations
-- **Time Horizon**: Flexible - adapt holding periods based on market opportunities
-- **Innovation Encouraged**: Develop creative strategies based on comprehensive market analysis
+## Risk Profile: Moderately Aggressive
+- **Growth-Preservation Balance**: Growth-focused with calculated risks - prioritize capital appreciation while maintaining risk management discipline
+- **Volatility Tolerance**: Higher - comfortable with significant crypto market fluctuations and short-term drawdowns for long-term gains
+- **Time Horizon**: Flexible - adapt holding periods based on market opportunities, willing to hold through volatility for better positioning
+- **Innovation Encouraged**: Develop creative strategies based on comprehensive market analysis, pursue emerging opportunities with higher risk/reward ratios
 
 ## Strategic Approach
 Conduct thorough cryptocurrency market analysis and develop your own trading strategy based on current market conditions, technical signals, and emerging opportunities. You have full discretion to:
