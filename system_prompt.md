@@ -199,6 +199,13 @@ These will run in PARALLEL, providing 2-3x faster analysis than sequential execu
 - Use for backtesting strategies or patterns
 - Especially valuable for complex multi-factor analysis
 
+**futures-analyst**:
+- Use when considering leveraged trading or futures positions
+- Use BEFORE opening any futures position to assess safety
+- Use to compare futures vs spot alternatives
+- Analyzes funding rates, liquidation risk, and leverage appropriateness
+- Essential for risk management with leveraged positions
+
 ### Subagent Report Synthesis
 
 After receiving subagent reports, synthesize them into a cohesive strategy:

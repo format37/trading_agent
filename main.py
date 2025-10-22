@@ -167,7 +167,8 @@ def load_subagent_prompts():
         "market-intelligence": "market_intelligence.md",
         "technical-analyst": "technical_analyst.md",
         "risk-manager": "risk_manager.md",
-        "data-analyst": "data_analyst.md"
+        "data-analyst": "data_analyst.md",
+        "futures-analyst": "futures_analyst.md"
     }
 
     prompts = {}
@@ -332,6 +333,27 @@ def create_subagent_definitions():
             description="Data analysis specialist. Use when you need rigorous quantitative analysis of CSV data from MCP tools. Expert in statistical analysis, pattern recognition, and data validation.",
             prompt=prompts["data-analyst"],
             tools=[
+                "mcp__ide__executeCode",
+                "Read"
+            ],
+            model="sonnet"
+        )
+
+    # Futures Analyst - Leverage and futures trading specialist
+    if "futures-analyst" in prompts:
+        agents["futures-analyst"] = AgentDefinition(
+            description="Futures trading analyst. Use when considering leveraged positions or futures opportunities. Analyzes funding rates, liquidation risk, basis spreads, and recommends safe leverage levels. Emphasizes risk management for leveraged trading.",
+            prompt=prompts["futures-analyst"],
+            tools=[
+                "mcp__binance__binance_get_ticker",
+                "mcp__binance__binance_get_orderbook",
+                "mcp__binance__binance_get_price",
+                "mcp__binance__binance_get_account",
+                "mcp__binance__binance_set_futures_leverage",
+                "mcp__binance__binance_manage_futures_positions",
+                "mcp__binance__binance_calculate_liquidation_risk",
+                "mcp__polygon__polygon_crypto_snapshot_ticker",
+                "mcp__polygon__polygon_crypto_aggregates",
                 "mcp__ide__executeCode",
                 "Read"
             ],

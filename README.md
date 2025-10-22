@@ -6,7 +6,7 @@ AI-powered cryptocurrency trading agent built with Claude SDK and the Model Cont
 
 ### Subagent-Powered Parallel Analysis
 
-The trading agent leverages **7 specialized subagents** for parallel execution and domain expertise:
+The trading agent leverages **8 specialized subagents** for parallel execution and domain expertise:
 
 **Asset Research Agents** (Run in Parallel):
 - **btc-researcher**: Bitcoin-specific analysis (technical, on-chain, institutional flows)
@@ -18,6 +18,7 @@ The trading agent leverages **7 specialized subagents** for parallel execution a
 - **technical-analyst**: Pure chart analysis expert (multi-timeframe, support/resistance)
 - **risk-manager**: Portfolio risk assessment and position sizing validator
 - **data-analyst**: Python/pandas statistical analysis specialist
+- **futures-analyst**: Futures trading specialist (leverage, funding rates, liquidation risk)
 
 **Key Benefits**:
 - **2-3x Faster**: Parallel subagent execution vs sequential analysis
@@ -435,7 +436,8 @@ prompts/
 ├── market_intelligence.md  # Web research & macro analysis
 ├── technical_analyst.md    # Pure chart analysis expert
 ├── risk_manager.md         # Portfolio risk assessment
-└── data_analyst.md         # Statistical analysis specialist
+├── data_analyst.md         # Statistical analysis specialist
+└── futures_analyst.md      # Futures trading & leverage specialist
 ```
 
 **Customization**: Edit these prompts to adjust subagent behavior, expertise, and analysis style.
@@ -469,10 +471,18 @@ When main agent invokes:
 - eth-researcher: Polygon + Perplexity + Binance market data
 - altcoin-researcher: Polygon + Perplexity + Binance market data
 
+**Trading Specialist** (Can analyze and recommend but main agent executes):
+- futures-analyst: Binance futures data + liquidation calculator + leverage tools
+  - Analyzes funding rates and basis spreads
+  - Calculates safe leverage levels (max 2-5x recommended)
+  - Validates liquidation risk before futures positions
+  - Can recommend futures positions but main agent executes
+
 **Main Agent** (Full authority):
-- All MCP tools including trading execution
+- All MCP tools including spot and futures trading execution
 - Can invoke any subagent
 - Makes final trading decisions
+- Executes both spot and futures orders
 
 ## System Prompt
 
@@ -504,7 +514,8 @@ trading_agent/
 │   ├── market_intelligence.md
 │   ├── technical_analyst.md
 │   ├── risk_manager.md
-│   └── data_analyst.md
+│   ├── data_analyst.md
+│   └── futures_analyst.md
 ├── telemetry.py            # OpenTelemetry observability
 ├── requirements.txt        # Python dependencies (claude-agent-sdk)
 ├── mount.sh                # Script to mount shared data folder
