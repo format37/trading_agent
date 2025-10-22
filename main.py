@@ -2,6 +2,7 @@ import asyncio
 from claude_agent_sdk import (
     ClaudeSDKClient,
     ClaudeAgentOptions,
+    AgentDefinition,
     AssistantMessage,
     SystemMessage,
     ResultMessage,
@@ -154,6 +155,191 @@ def display_result(result: ResultMessage):
     }
     telemetry.trace_session_result(result_data)
 
+def load_subagent_prompts():
+    """Load all subagent prompts from the prompts directory."""
+    prompts_dir = os.path.join(os.path.dirname(__file__), "prompts")
+
+    # Load each subagent prompt
+    subagent_files = {
+        "btc-researcher": "btc_researcher.md",
+        "eth-researcher": "eth_researcher.md",
+        "altcoin-researcher": "altcoin_researcher.md",
+        "market-intelligence": "market_intelligence.md",
+        "technical-analyst": "technical_analyst.md",
+        "risk-manager": "risk_manager.md",
+        "data-analyst": "data_analyst.md"
+    }
+
+    prompts = {}
+    for name, filename in subagent_files.items():
+        filepath = os.path.join(prompts_dir, filename)
+        if os.path.exists(filepath):
+            with open(filepath, "r") as f:
+                prompts[name] = f.read()
+        else:
+            print(f"Warning: Subagent prompt file not found: {filepath}")
+
+    return prompts
+
+def create_subagent_definitions():
+    """Create AgentDefinition objects for all subagents."""
+    # Load prompts
+    prompts = load_subagent_prompts()
+
+    # Define agents with their configurations
+    agents = {}
+
+    # BTC Researcher - Parallel asset analysis
+    if "btc-researcher" in prompts:
+        agents["btc-researcher"] = AgentDefinition(
+            description="Bitcoin market analysis specialist. Use for comprehensive BTC analysis when making trading decisions. Provides technical analysis, on-chain metrics, and institutional flow research. Can run in parallel with other researchers.",
+            prompt=prompts["btc-researcher"],
+            tools=[
+                "mcp__polygon__polygon_crypto_snapshot_ticker",
+                "mcp__polygon__polygon_crypto_aggregates",
+                "mcp__polygon__polygon_crypto_gainers_losers",
+                "mcp__polygon__polygon_crypto_rsi",
+                "mcp__polygon__polygon_crypto_macd",
+                "mcp__polygon__polygon_crypto_ema",
+                "mcp__polygon__polygon_crypto_sma",
+                "mcp__polygon__polygon_news",
+                "mcp__perplexity__perplexity_sonar",
+                "mcp__perplexity__perplexity_sonar_pro",
+                "mcp__perplexity__perplexity_sonar_reasoning",
+                "mcp__binance__binance_get_orderbook",
+                "mcp__binance__binance_get_recent_trades",
+                "mcp__binance__binance_get_ticker",
+                "mcp__binance__binance_get_price",
+                "mcp__ide__executeCode",
+                "Read"
+            ],
+            model="sonnet"
+        )
+
+    # ETH Researcher - Parallel asset analysis
+    if "eth-researcher" in prompts:
+        agents["eth-researcher"] = AgentDefinition(
+            description="Ethereum ecosystem analysis specialist. Use for comprehensive ETH analysis when making trading decisions. Provides ETH technical analysis, DeFi metrics, Layer 2 adoption, and network activity research. Can run in parallel with other researchers.",
+            prompt=prompts["eth-researcher"],
+            tools=[
+                "mcp__polygon__polygon_crypto_snapshot_ticker",
+                "mcp__polygon__polygon_crypto_aggregates",
+                "mcp__polygon__polygon_crypto_gainers_losers",
+                "mcp__polygon__polygon_crypto_rsi",
+                "mcp__polygon__polygon_crypto_macd",
+                "mcp__polygon__polygon_crypto_ema",
+                "mcp__polygon__polygon_crypto_sma",
+                "mcp__polygon__polygon_news",
+                "mcp__perplexity__perplexity_sonar",
+                "mcp__perplexity__perplexity_sonar_pro",
+                "mcp__perplexity__perplexity_sonar_reasoning",
+                "mcp__binance__binance_get_orderbook",
+                "mcp__binance__binance_get_recent_trades",
+                "mcp__binance__binance_get_ticker",
+                "mcp__binance__binance_get_price",
+                "mcp__ide__executeCode",
+                "Read"
+            ],
+            model="sonnet"
+        )
+
+    # Altcoin Researcher - Opportunity discovery
+    if "altcoin-researcher" in prompts:
+        agents["altcoin-researcher"] = AgentDefinition(
+            description="Altcoin opportunity research specialist. Use when seeking portfolio diversification beyond BTC/ETH or when looking for alternative opportunities. Discovers mid-cap and small-cap cryptocurrencies with sector rotation signals and momentum plays.",
+            prompt=prompts["altcoin-researcher"],
+            tools=[
+                "mcp__polygon__polygon_crypto_snapshot_ticker",
+                "mcp__polygon__polygon_crypto_aggregates",
+                "mcp__polygon__polygon_crypto_gainers_losers",
+                "mcp__polygon__polygon_crypto_rsi",
+                "mcp__polygon__polygon_crypto_macd",
+                "mcp__polygon__polygon_news",
+                "mcp__polygon__polygon_ticker_details",
+                "mcp__perplexity__perplexity_sonar",
+                "mcp__perplexity__perplexity_sonar_pro",
+                "mcp__perplexity__perplexity_sonar_reasoning",
+                "mcp__binance__binance_get_orderbook",
+                "mcp__binance__binance_get_recent_trades",
+                "mcp__binance__binance_get_ticker",
+                "mcp__binance__binance_get_price",
+                "mcp__binance__binance_get_book_ticker",
+                "mcp__ide__executeCode",
+                "Read"
+            ],
+            model="sonnet"
+        )
+
+    # Market Intelligence - Web research specialist
+    if "market-intelligence" in prompts:
+        agents["market-intelligence"] = AgentDefinition(
+            description="Market intelligence and research specialist. Use when you need comprehensive web research on macro trends, regulatory developments, institutional activity, or market sentiment that cannot be obtained from price data alone. Read-only analyst.",
+            prompt=prompts["market-intelligence"],
+            tools=[
+                "mcp__perplexity__perplexity_sonar",
+                "mcp__perplexity__perplexity_sonar_pro",
+                "mcp__perplexity__perplexity_sonar_reasoning",
+                "mcp__perplexity__perplexity_sonar_reasoning_pro",
+                "mcp__perplexity__perplexity_sonar_deep_research",
+                "mcp__polygon__polygon_news",
+                "Read"
+            ],
+            model="sonnet"
+        )
+
+    # Technical Analyst - Pure chart analysis
+    if "technical-analyst" in prompts:
+        agents["technical-analyst"] = AgentDefinition(
+            description="Pure technical analysis specialist. Use for multi-timeframe chart analysis, support/resistance levels, and technical indicators WITHOUT fundamental bias. Provides precise entry/exit levels.",
+            prompt=prompts["technical-analyst"],
+            tools=[
+                "mcp__polygon__polygon_crypto_snapshot_ticker",
+                "mcp__polygon__polygon_crypto_aggregates",
+                "mcp__polygon__polygon_crypto_rsi",
+                "mcp__polygon__polygon_crypto_macd",
+                "mcp__polygon__polygon_crypto_ema",
+                "mcp__polygon__polygon_crypto_sma",
+                "mcp__binance__binance_get_orderbook",
+                "mcp__binance__binance_get_recent_trades",
+                "mcp__binance__binance_get_ticker",
+                "mcp__ide__executeCode",
+                "Read"
+            ],
+            model="sonnet"
+        )
+
+    # Risk Manager - Portfolio risk assessment
+    if "risk-manager" in prompts:
+        agents["risk-manager"] = AgentDefinition(
+            description="Portfolio risk manager. Use BEFORE executing trades to validate position sizing and AFTER trades to assess portfolio health. Calculates risk metrics and ensures risk management compliance. Read-only analyst with no trading authority.",
+            prompt=prompts["risk-manager"],
+            tools=[
+                "mcp__binance__binance_get_account",
+                "mcp__binance__binance_get_open_orders",
+                "mcp__binance__binance_spot_trade_history",
+                "mcp__binance__binance_calculate_spot_pnl",
+                "mcp__binance__trading_notes",
+                "mcp__polygon__polygon_crypto_aggregates",
+                "mcp__ide__executeCode",
+                "Read"
+            ],
+            model="sonnet"
+        )
+
+    # Data Analyst - Python/pandas specialist
+    if "data-analyst" in prompts:
+        agents["data-analyst"] = AgentDefinition(
+            description="Data analysis specialist. Use when you need rigorous quantitative analysis of CSV data from MCP tools. Expert in statistical analysis, pattern recognition, and data validation.",
+            prompt=prompts["data-analyst"],
+            tools=[
+                "mcp__ide__executeCode",
+                "Read"
+            ],
+            model="sonnet"
+        )
+
+    return agents
+
 async def main():
     """Trading Agent with full MCP tool access for market analysis and execution."""
 
@@ -161,10 +347,23 @@ async def main():
     with open("system_prompt.md", "r") as f:
         system_prompt = f.read()
 
-    # Configure options with all MCP tools
+    # Create subagent definitions
+    print("=" * 80)
+    print("Initializing Subagent Architecture...")
+    print("=" * 80)
+    subagents = create_subagent_definitions()
+    print(f"✓ Loaded {len(subagents)} specialized subagents:")
+    for agent_name in subagents.keys():
+        print(f"  - {agent_name}")
+    print("=" * 80 + "\n")
+
+    # Configure options with all MCP tools and subagents
     options = ClaudeAgentOptions(
         # System prompt for conservative trading
         system_prompt=system_prompt,
+
+        # Subagents for parallel analysis and specialized tasks
+        agents=subagents,
 
         # Analysis and utility tools
         allowed_tools=[
