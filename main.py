@@ -16,14 +16,19 @@ import os
 import json
 from datetime import datetime, timezone
 
-# Import telemetry module
+# Import telemetry and activity tracking modules
 from telemetry import get_telemetry_manager
+from activity_tracker import AgentActivityTracker
+from session_reporter import SessionReporter
 
 # Load environment variables from .env file
 load_dotenv()
 
-# Initialize telemetry
-telemetry = get_telemetry_manager(service_name="claude-trading-agent")
+# Initialize activity tracker for session reporting
+activity_tracker = AgentActivityTracker()
+
+# Initialize telemetry with activity tracking
+telemetry = get_telemetry_manager(service_name="claude-trading-agent", activity_tracker=activity_tracker)
 
 # ============================================================================
 # Message Display Helpers
@@ -498,6 +503,9 @@ async def main():
         await client.query(user_prompt_with_timestamp)
         turn_count = 1
 
+        # Start tracking the first turn
+        activity_tracker.start_turn(turn_count)
+
         # Process the initial response
         print(f"\n{'=' * 80}")
         print(f"[Turn {turn_count}] Agent Response")
@@ -520,6 +528,8 @@ async def main():
                     display_system_message(message)
                 elif isinstance(message, ResultMessage):
                     display_result(message)
+                    # End the current turn when we receive the result
+                    activity_tracker.end_turn()
 
         # Interactive conversation loop
         print("\n" + "=" * 80)
@@ -545,6 +555,12 @@ async def main():
                     print("\n" + "=" * 80)
                     print(f"Trading session ended after {turn_count} turns.")
                     print("=" * 80)
+
+                    # End session and generate report
+                    activity_tracker.end_session()
+                    report_path = SessionReporter.generate_and_save(activity_tracker)
+                    print(f"\n📊 Session report saved to: {report_path}")
+
                     break
 
                 elif user_input.lower() == 'interrupt':
@@ -554,6 +570,10 @@ async def main():
 
                 # Send user's response to Claude with UTC timestamp
                 turn_count += 1
+
+                # Start tracking the new turn
+                activity_tracker.start_turn(turn_count)
+
                 current_utc_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
                 user_input_with_timestamp = f"Current UTC Time: {current_utc_time}\n\n{user_input}"
                 await client.query(user_input_with_timestamp)
@@ -580,6 +600,8 @@ async def main():
                             display_system_message(message)
                         elif isinstance(message, ResultMessage):
                             display_result(message)
+                            # End the current turn when we receive the result
+                            activity_tracker.end_turn()
 
                 print()  # Add spacing after response
 
@@ -587,12 +609,33 @@ async def main():
                 print("\n\n" + "=" * 80)
                 print("Trading session interrupted by user.")
                 print("=" * 80)
+
+                # End session and generate report
+                activity_tracker.end_session()
+                report_path = SessionReporter.generate_and_save(activity_tracker)
+                print(f"\n📊 Session report saved to: {report_path}")
+
                 break
             except EOFError:
                 print("\n\n" + "=" * 80)
                 print("Trading session ended.")
                 print("=" * 80)
+
+                # End session and generate report
+                activity_tracker.end_session()
+                report_path = SessionReporter.generate_and_save(activity_tracker)
+                print(f"\n📊 Session report saved to: {report_path}")
+
                 break
+
+    # Final safety net: Ensure session report is generated
+    if activity_tracker and not activity_tracker.end_time:
+        activity_tracker.end_session()
+        try:
+            report_path = SessionReporter.generate_and_save(activity_tracker)
+            print(f"\n📊 Session report saved to: {report_path}")
+        except Exception as e:
+            print(f"\n⚠️ Could not save session report: {e}")
 
     # Shutdown telemetry
     telemetry.shutdown()

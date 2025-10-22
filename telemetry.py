@@ -31,17 +31,19 @@ logger = logging.getLogger(__name__)
 class TelemetryManager:
     """Manages OpenTelemetry configuration and instrumentation for the trading agent."""
 
-    def __init__(self, service_name: str = "claude-trading-agent"):
+    def __init__(self, service_name: str = "claude-trading-agent", activity_tracker=None):
         """
         Initialize the telemetry manager.
 
         Args:
             service_name: Name of the service for telemetry identification
+            activity_tracker: Optional AgentActivityTracker instance for session tracking
         """
         self.service_name = service_name
         self.tracer_provider: Optional[TracerProvider] = None
         self.tracer: Optional[trace.Tracer] = None
         self.enabled = self._is_telemetry_enabled()
+        self.activity_tracker = activity_tracker
 
         if self.enabled:
             self._setup_telemetry()
@@ -172,6 +174,10 @@ class TelemetryManager:
             tool_id: Unique identifier for this tool invocation
             tool_input: Input parameters for the tool
         """
+        # Record in activity tracker if available
+        if self.activity_tracker:
+            self.activity_tracker.record_tool_call(tool_name, tool_id, tool_input)
+
         if not self.enabled or not self.tracer:
             return
 
@@ -196,6 +202,10 @@ class TelemetryManager:
             is_error: Whether the tool execution resulted in an error
             result_summary: Summary of the result (truncated if too long)
         """
+        # Record in activity tracker if available
+        if self.activity_tracker:
+            self.activity_tracker.record_tool_result(tool_id, result_summary, is_error)
+
         if not self.enabled or not self.tracer:
             return
 
@@ -347,17 +357,18 @@ class TelemetryManager:
 _telemetry_manager: Optional[TelemetryManager] = None
 
 
-def get_telemetry_manager(service_name: str = "claude-trading-agent") -> TelemetryManager:
+def get_telemetry_manager(service_name: str = "claude-trading-agent", activity_tracker=None) -> TelemetryManager:
     """
     Get or create the global telemetry manager instance.
 
     Args:
         service_name: Name of the service for telemetry
+        activity_tracker: Optional AgentActivityTracker instance for session tracking
 
     Returns:
         TelemetryManager instance
     """
     global _telemetry_manager
     if _telemetry_manager is None:
-        _telemetry_manager = TelemetryManager(service_name=service_name)
+        _telemetry_manager = TelemetryManager(service_name=service_name, activity_tracker=activity_tracker)
     return _telemetry_manager
