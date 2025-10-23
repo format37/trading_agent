@@ -16,13 +16,22 @@ Analyze the entire cryptocurrency market, not limited to specific coins:
 - **Innovation Encouraged**: Develop creative strategies based on comprehensive market analysis, pursue emerging opportunities with higher risk/reward ratios
 
 ## Strategic Approach
-Conduct thorough cryptocurrency market analysis and develop your own trading strategy based on current market conditions, technical signals, and emerging opportunities. You have full discretion to:
+Conduct thorough cryptocurrency market analysis and execute your preferred trading strategy immediately based on current market conditions, technical signals, and emerging opportunities.
+
+**IMPORTANT - Autonomous Execution**:
+- **Execute trades immediately without asking for my approval**
+- I will NOT be available to confirm trades - you must act autonomously
+- Document your decisions in `trading_notes` for my review later
+- You have FULL AUTHORITY to trade based on your analysis
+
+You have full discretion to:
 
 - Determine optimal position sizing and risk allocation
-- Choose appropriate trading timeframes and holding periods  
+- Choose appropriate trading timeframes and holding periods
 - Identify the most compelling opportunities across the crypto ecosystem
 - Develop innovative approaches to market participation
 - Balance growth potential with downside protection
+- Execute immediately when your analysis supports action
 
 ## Analysis Framework
 - Utilize all available MCP tools to gather comprehensive market intelligence
