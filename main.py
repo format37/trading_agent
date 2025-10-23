@@ -216,6 +216,9 @@ def create_subagent_definitions():
                 "mcp__binance__binance_get_recent_trades",
                 "mcp__binance__binance_get_ticker",
                 "mcp__binance__binance_get_price",
+                "mcp__binance__binance_py_eval",
+                "mcp__binance__binance_save_tool_notes",
+                "mcp__binance__binance_read_tool_notes",
                 "mcp__ide__executeCode",
                 "Read"
             ],
@@ -243,6 +246,9 @@ def create_subagent_definitions():
                 "mcp__binance__binance_get_recent_trades",
                 "mcp__binance__binance_get_ticker",
                 "mcp__binance__binance_get_price",
+                "mcp__binance__binance_py_eval",
+                "mcp__binance__binance_save_tool_notes",
+                "mcp__binance__binance_read_tool_notes",
                 "mcp__ide__executeCode",
                 "Read"
             ],
@@ -270,6 +276,9 @@ def create_subagent_definitions():
                 "mcp__binance__binance_get_ticker",
                 "mcp__binance__binance_get_price",
                 "mcp__binance__binance_get_book_ticker",
+                "mcp__binance__binance_py_eval",
+                "mcp__binance__binance_save_tool_notes",
+                "mcp__binance__binance_read_tool_notes",
                 "mcp__ide__executeCode",
                 "Read"
             ],
@@ -308,6 +317,9 @@ def create_subagent_definitions():
                 "mcp__binance__binance_get_orderbook",
                 "mcp__binance__binance_get_recent_trades",
                 "mcp__binance__binance_get_ticker",
+                "mcp__binance__binance_py_eval",
+                "mcp__binance__binance_save_tool_notes",
+                "mcp__binance__binance_read_tool_notes",
                 "mcp__ide__executeCode",
                 "Read"
             ],
@@ -325,6 +337,9 @@ def create_subagent_definitions():
                 "mcp__binance__binance_spot_trade_history",
                 "mcp__binance__binance_calculate_spot_pnl",
                 "mcp__binance__trading_notes",
+                "mcp__binance__binance_py_eval",
+                "mcp__binance__binance_save_tool_notes",
+                "mcp__binance__binance_read_tool_notes",
                 "mcp__polygon__polygon_crypto_aggregates",
                 "mcp__ide__executeCode",
                 "Read"
@@ -338,6 +353,9 @@ def create_subagent_definitions():
             description="Data analysis specialist. Use when you need rigorous quantitative analysis of CSV data from MCP tools. Expert in statistical analysis, pattern recognition, and data validation.",
             prompt=prompts["data-analyst"],
             tools=[
+                "mcp__binance__binance_py_eval",
+                "mcp__binance__binance_save_tool_notes",
+                "mcp__binance__binance_read_tool_notes",
                 "mcp__ide__executeCode",
                 "Read"
             ],
@@ -357,6 +375,9 @@ def create_subagent_definitions():
                 "mcp__binance__binance_set_futures_leverage",
                 "mcp__binance__binance_manage_futures_positions",
                 "mcp__binance__binance_calculate_liquidation_risk",
+                "mcp__binance__binance_py_eval",
+                "mcp__binance__binance_save_tool_notes",
+                "mcp__binance__binance_read_tool_notes",
                 "mcp__polygon__polygon_crypto_snapshot_ticker",
                 "mcp__polygon__polygon_crypto_aggregates",
                 "mcp__ide__executeCode",
@@ -457,8 +478,12 @@ async def main():
 
             # Binance MCP - Analysis & Risk Management
             "mcp__binance__binance_calculate_spot_pnl",
-            "mcp__binance__trading_notes",
-            "mcp__binance__save_tool_notes",
+            "mcp__binance__binance_trading_notes",
+
+            # Binance MCP - Tool Management
+            "mcp__binance__binance_py_eval",
+            "mcp__binance__binance_read_tool_notes",
+            "mcp__binance__binance_save_tool_notes",
         ],
 
         permission_mode="bypassPermissions",  # Full permissions - no prompts
@@ -491,10 +516,7 @@ async def main():
         # Load entrance prompt (optional trigger for market check)
         with open("entrance.md", "r") as f:
             entrance_prompt = f.read()
-
-        # Optionally append entrance prompt to trigger market action check
-        # To enable: user_prompt = f"{user_prompt}\n\n{entrance_prompt}"
-        # For now, entrance_prompt is available but not automatically appended
+            user_prompt = f"{user_prompt}\n\n{entrance_prompt}"
 
         # Add current UTC timestamp to the prompt
         current_utc_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
