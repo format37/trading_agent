@@ -13,13 +13,17 @@ from claude_agent_sdk import (
 )
 from dotenv import load_dotenv
 import os
+import sys
 import json
+import argparse
 from datetime import datetime, timezone
+from pathlib import Path
 
 # Import telemetry and activity tracking modules
 from telemetry import get_telemetry_manager
 from activity_tracker import AgentActivityTracker
 from session_reporter import SessionReporter
+from logger import setup_session_logging
 
 # Load environment variables from .env file
 load_dotenv()
@@ -388,8 +392,88 @@ def create_subagent_definitions():
 
     return agents
 
+def parse_arguments():
+    """Parse command-line arguments."""
+    parser = argparse.ArgumentParser(
+        description="Trading Agent - Event-driven cryptocurrency trading with Claude SDK"
+    )
+    parser.add_argument(
+        "--event-file",
+        type=str,
+        help="Path to JSON file containing event data to trigger analysis"
+    )
+    parser.add_argument(
+        "--interactive",
+        action="store_true",
+        help="Run in interactive mode (multi-turn conversation)"
+    )
+    return parser.parse_args()
+
+def load_event_data(event_file_path: str) -> dict:
+    """
+    Load event data from JSON file.
+
+    Args:
+        event_file_path: Path to event JSON file
+
+    Returns:
+        Event data dictionary
+    """
+    try:
+        with open(event_file_path, 'r') as f:
+            event_data = json.load(f)
+        print(f"✓ Loaded event data from: {event_file_path}")
+        return event_data
+    except FileNotFoundError:
+        print(f"❌ Error: Event file not found: {event_file_path}")
+        sys.exit(1)
+    except json.JSONDecodeError as e:
+        print(f"❌ Error: Invalid JSON in event file: {e}")
+        sys.exit(1)
+
+def format_event_prompt(event_data: dict) -> str:
+    """
+    Format event data into a prompt string.
+
+    Args:
+        event_data: Event data dictionary
+
+    Returns:
+        Formatted event prompt
+    """
+    if not event_data:
+        return ""
+
+    lines = ["## Event Alert", ""]
+
+    # Format event type
+    if "type" in event_data:
+        lines.append(f"**Event Type**: {event_data['type']}")
+
+    # Format message
+    if "message" in event_data:
+        lines.append(f"**Message**: {event_data['message']}")
+
+    # Format additional fields
+    for key, value in event_data.items():
+        if key not in ["type", "message"]:
+            formatted_key = key.replace("_", " ").title()
+            lines.append(f"**{formatted_key}**: {value}")
+
+    lines.append("")
+    lines.append("Please analyze this event and take appropriate trading action if warranted.")
+
+    return "\n".join(lines)
+
 async def main():
     """Trading Agent with full MCP tool access for market analysis and execution."""
+
+    # Parse command-line arguments
+    args = parse_arguments()
+
+    # Setup session logging
+    session_logger = setup_session_logging()
+    print(f"📝 Logging to: {session_logger.get_log_path()}\n")
 
     # Load system prompt
     with open("system_prompt.md", "r") as f:
@@ -508,159 +592,195 @@ async def main():
 
     print("=" * 80)
 
-    async with ClaudeSDKClient(options=options) as client:
-        # Initial trading prompt
-        with open("user_prompt.md", "r") as f:
-            user_prompt = f.read()
+    # Determine execution mode
+    interactive_mode = args.interactive
 
-        # Load entrance prompt (optional trigger for market check)
-        with open("entrance.md", "r") as f:
-            entrance_prompt = f.read()
-            user_prompt = f"{user_prompt}\n\n{entrance_prompt}"
+    # Variable to track exit code (0=success, 1=error, 2=no action)
+    exit_code = 0
 
-        # Add current UTC timestamp to the prompt
-        current_utc_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-        user_prompt_with_timestamp = f"Current UTC Time: {current_utc_time}\n\n{user_prompt}"
+    try:
+        async with ClaudeSDKClient(options=options) as client:
+            # Initial trading prompt
+            with open("user_prompt.md", "r") as f:
+                user_prompt = f.read()
 
-        await client.query(user_prompt_with_timestamp)
-        turn_count = 1
+            # Load entrance prompt (optional trigger for market check)
+            with open("entrance.md", "r") as f:
+                entrance_prompt = f.read()
+                user_prompt = f"{user_prompt}\n\n{entrance_prompt}"
 
-        # Start tracking the first turn
-        activity_tracker.start_turn(turn_count)
+            # Load and append event data if provided
+            if args.event_file:
+                event_data = load_event_data(args.event_file)
+                event_prompt = format_event_prompt(event_data)
+                user_prompt = f"{user_prompt}\n\n{event_prompt}"
+                print(f"📢 Event-driven mode: Processing event from {args.event_file}\n")
+            elif not interactive_mode:
+                print("ℹ️  Single-turn mode: No event file provided, running standard analysis\n")
 
-        # Process the initial response
-        print(f"\n{'=' * 80}")
-        print(f"[Turn {turn_count}] Agent Response")
-        print(f"{'=' * 80}")
+            # Add current UTC timestamp to the prompt
+            current_utc_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+            user_prompt_with_timestamp = f"Current UTC Time: {current_utc_time}\n\n{user_prompt}"
 
-        # Wrap in telemetry trace
-        with telemetry.trace_agent_turn(turn_count):
-            async for message in client.receive_response():
-                if isinstance(message, AssistantMessage):
-                    for block in message.content:
-                        if isinstance(block, ThinkingBlock):
-                            display_thinking(block)
-                        elif isinstance(block, TextBlock):
-                            display_text(block)
-                        elif isinstance(block, ToolUseBlock):
-                            display_tool_use(block)
-                        elif isinstance(block, ToolResultBlock):
-                            display_tool_result(block)
-                elif isinstance(message, SystemMessage):
-                    display_system_message(message)
-                elif isinstance(message, ResultMessage):
-                    display_result(message)
-                    # End the current turn when we receive the result
-                    activity_tracker.end_turn()
+            await client.query(user_prompt_with_timestamp)
+            turn_count = 1
 
-        # Interactive conversation loop
-        print("\n" + "=" * 80)
-        print("Interactive Mode - You can now respond to Claude")
-        print("=" * 80)
-        print("Commands:")
-        print("  - Type your response to continue the conversation")
-        print("  - 'exit' or 'quit' - End the conversation")
-        print("  - 'interrupt' - Stop Claude's current task")
-        print("=" * 80 + "\n")
+            # Start tracking the first turn
+            activity_tracker.start_turn(turn_count)
 
-        while True:
-            try:
-                # Get user input
-                user_input = input(f"[Turn {turn_count + 1}] You: ").strip()
+            # Process the initial response
+            print(f"\n{'=' * 80}")
+            print(f"[Turn {turn_count}] Agent Response")
+            print(f"{'=' * 80}")
 
-                if not user_input:
-                    print("Please enter a response or command.\n")
-                    continue
+            # Wrap in telemetry trace
+            with telemetry.trace_agent_turn(turn_count):
+                async for message in client.receive_response():
+                    if isinstance(message, AssistantMessage):
+                        for block in message.content:
+                            if isinstance(block, ThinkingBlock):
+                                display_thinking(block)
+                            elif isinstance(block, TextBlock):
+                                display_text(block)
+                            elif isinstance(block, ToolUseBlock):
+                                display_tool_use(block)
+                            elif isinstance(block, ToolResultBlock):
+                                display_tool_result(block)
+                    elif isinstance(message, SystemMessage):
+                        display_system_message(message)
+                    elif isinstance(message, ResultMessage):
+                        display_result(message)
+                        # End the current turn when we receive the result
+                        activity_tracker.end_turn()
 
-                # Handle commands
-                if user_input.lower() in ['exit', 'quit']:
-                    print("\n" + "=" * 80)
-                    print(f"Trading session ended after {turn_count} turns.")
-                    print("=" * 80)
-
-                    # End session and generate report
-                    activity_tracker.end_session()
-                    report_path = SessionReporter.generate_and_save(activity_tracker)
-                    print(f"\n📊 Session report saved to: {report_path}")
-
-                    break
-
-                elif user_input.lower() == 'interrupt':
-                    await client.interrupt()
-                    print("\n[Task interrupted!]\n")
-                    continue
-
-                # Send user's response to Claude with UTC timestamp
-                turn_count += 1
-
-                # Start tracking the new turn
-                activity_tracker.start_turn(turn_count)
-
-                current_utc_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-                user_input_with_timestamp = f"Current UTC Time: {current_utc_time}\n\n{user_input}"
-                await client.query(user_input_with_timestamp)
-
-                # Process Claude's response
-                print(f"\n{'=' * 80}")
-                print(f"[Turn {turn_count}] Agent Response")
-                print(f"{'=' * 80}")
-
-                # Wrap in telemetry trace
-                with telemetry.trace_agent_turn(turn_count):
-                    async for message in client.receive_response():
-                        if isinstance(message, AssistantMessage):
-                            for block in message.content:
-                                if isinstance(block, ThinkingBlock):
-                                    display_thinking(block)
-                                elif isinstance(block, TextBlock):
-                                    display_text(block)
-                                elif isinstance(block, ToolUseBlock):
-                                    display_tool_use(block)
-                                elif isinstance(block, ToolResultBlock):
-                                    display_tool_result(block)
-                        elif isinstance(message, SystemMessage):
-                            display_system_message(message)
-                        elif isinstance(message, ResultMessage):
-                            display_result(message)
-                            # End the current turn when we receive the result
-                            activity_tracker.end_turn()
-
-                print()  # Add spacing after response
-
-            except KeyboardInterrupt:
-                print("\n\n" + "=" * 80)
-                print("Trading session interrupted by user.")
+            # Interactive or single-turn mode
+            if interactive_mode:
+                # Interactive conversation loop
+                print("\n" + "=" * 80)
+                print("Interactive Mode - You can now respond to Claude")
                 print("=" * 80)
+                print("Commands:")
+                print("  - Type your response to continue the conversation")
+                print("  - 'exit' or 'quit' - End the conversation")
+                print("  - 'interrupt' - Stop Claude's current task")
+                print("=" * 80 + "\n")
 
-                # End session and generate report
-                activity_tracker.end_session()
-                report_path = SessionReporter.generate_and_save(activity_tracker)
-                print(f"\n📊 Session report saved to: {report_path}")
+                while True:
+                    try:
+                        # Get user input
+                        user_input = input(f"[Turn {turn_count + 1}] You: ").strip()
 
-                break
-            except EOFError:
-                print("\n\n" + "=" * 80)
-                print("Trading session ended.")
-                print("=" * 80)
+                        if not user_input:
+                            print("Please enter a response or command.\n")
+                            continue
 
-                # End session and generate report
-                activity_tracker.end_session()
-                report_path = SessionReporter.generate_and_save(activity_tracker)
-                print(f"\n📊 Session report saved to: {report_path}")
+                        # Handle commands
+                        if user_input.lower() in ['exit', 'quit']:
+                            print("\n" + "=" * 80)
+                            print(f"Trading session ended after {turn_count} turns.")
+                            print("=" * 80)
+                            break
 
-                break
+                        elif user_input.lower() == 'interrupt':
+                            await client.interrupt()
+                            print("\n[Task interrupted!]\n")
+                            continue
 
-    # Final safety net: Ensure session report is generated
+                        # Send user's response to Claude with UTC timestamp
+                        turn_count += 1
+
+                        # Start tracking the new turn
+                        activity_tracker.start_turn(turn_count)
+
+                        current_utc_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+                        user_input_with_timestamp = f"Current UTC Time: {current_utc_time}\n\n{user_input}"
+                        await client.query(user_input_with_timestamp)
+
+                        # Process Claude's response
+                        print(f"\n{'=' * 80}")
+                        print(f"[Turn {turn_count}] Agent Response")
+                        print(f"{'=' * 80}")
+
+                        # Wrap in telemetry trace
+                        with telemetry.trace_agent_turn(turn_count):
+                            async for message in client.receive_response():
+                                if isinstance(message, AssistantMessage):
+                                    for block in message.content:
+                                        if isinstance(block, ThinkingBlock):
+                                            display_thinking(block)
+                                        elif isinstance(block, TextBlock):
+                                            display_text(block)
+                                        elif isinstance(block, ToolUseBlock):
+                                            display_tool_use(block)
+                                        elif isinstance(block, ToolResultBlock):
+                                            display_tool_result(block)
+                                elif isinstance(message, SystemMessage):
+                                    display_system_message(message)
+                                elif isinstance(message, ResultMessage):
+                                    display_result(message)
+                                    # End the current turn when we receive the result
+                                    activity_tracker.end_turn()
+
+                        print()  # Add spacing after response
+
+                    except KeyboardInterrupt:
+                        print("\n\n" + "=" * 80)
+                        print("Trading session interrupted by user.")
+                        print("=" * 80)
+                        exit_code = 1
+                        break
+                    except EOFError:
+                        print("\n\n" + "=" * 80)
+                        print("Trading session ended.")
+                        print("=" * 80)
+                        break
+            else:
+                # Single-turn mode: Process response and exit
+                print("\n📍 Single-turn mode: Processing agent response...\n")
+
+    except Exception as e:
+        print(f"\n❌ Error during agent execution: {e}")
+        import traceback
+        traceback.print_exc()
+        exit_code = 1
+
+    # Generate session report
+    print("\n" + "=" * 80)
+    print("Finalizing session...")
+    print("=" * 80)
+
     if activity_tracker and not activity_tracker.end_time:
         activity_tracker.end_session()
-        try:
-            report_path = SessionReporter.generate_and_save(activity_tracker)
-            print(f"\n📊 Session report saved to: {report_path}")
-        except Exception as e:
-            print(f"\n⚠️ Could not save session report: {e}")
+
+    try:
+        report_path = SessionReporter.generate_and_save(activity_tracker)
+        print(f"📊 Session report saved to: {report_path}")
+    except Exception as e:
+        print(f"⚠️ Could not save session report: {e}")
+        exit_code = 1
 
     # Shutdown telemetry
     telemetry.shutdown()
 
+    # Close logger
+    session_logger.close()
+
+    # Print exit message
+    print("\n" + "=" * 80)
+    if exit_code == 0:
+        print("✅ Trading session completed successfully")
+    elif exit_code == 1:
+        print("❌ Trading session completed with errors")
+    elif exit_code == 2:
+        print("ℹ️  Trading session completed - no action taken")
+    print("=" * 80 + "\n")
+
+    # Exit with appropriate code
+    sys.exit(exit_code)
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except Exception as e:
+        print(f"\n❌ Fatal error: {e}")
+        sys.exit(1)

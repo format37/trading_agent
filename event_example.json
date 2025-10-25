@@ -1,0 +1,8 @@
+{
+  "type": "market_cap",
+  "message": "The Bitcoin MarketCap went above $2,200.0 billion USD.",
+  "currency": "BTC",
+  "direction": "above",
+  "threshold": "2200.0 billion",
+  "alert_condition_id": 2281576
+}

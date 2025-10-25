@@ -1,1 +1,0 @@
-Morning. Market raised a bit. Perform comprehensive analysis with all 8 subagents and execute your preferred strategy immediately. No need to ask for approval - act autonomously based on your analysis.

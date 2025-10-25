@@ -273,19 +273,93 @@ This ensures all CSV files saved by MCP tools are immediately accessible to the 
 
 ## Usage
 
-### Starting the Agent
+The trading agent supports two execution modes:
 
+### 1. Single-Turn Event-Driven Mode (Default)
+
+Designed for server deployment with scheduled tasks or event triggers. The agent processes one analysis cycle and exits automatically.
+
+**Basic Usage:**
 ```bash
 python main.py
 ```
 
 The agent will:
-1. Load the conservative trading system prompt from `trading_prompt.md`
-2. Connect to Polygon and Binance MCP servers
-3. Execute an initial market assessment for BTC and ETH
-4. Enter interactive mode for conversation
+1. Load trading system prompt and initialize subagents
+2. Execute comprehensive market analysis
+3. Make autonomous trading decisions
+4. Generate session report and exit
 
-### Interactive Mode
+**Event-Triggered Usage:**
+```bash
+python main.py --event-file event.json
+```
+
+Example event file (`event.json`):
+```json
+{
+  "type": "market_cap",
+  "message": "The Bitcoin MarketCap went above $2,200.0 billion USD.",
+  "currency": "BTC",
+  "direction": "above",
+  "threshold": "2200.0 billion",
+  "alert_condition_id": 2281576
+}
+```
+The JSON structure is not strict. It sending to agent as text.
+
+The agent will:
+1. Load and process the event data
+2. Analyze market conditions related to the event
+3. Execute appropriate trading actions
+4. Exit with status code (0=success, 1=error, 2=no action)
+
+**Server Deployment Examples:**
+
+Cron job (every 4 hours):
+```bash
+0 */4 * * * cd /path/to/trading_agent && python main.py >> data/trading_agent/logs/cron.log 2>&1
+```
+
+Systemd service for event files:
+```bash
+# /etc/systemd/system/trading-agent@.service
+[Unit]
+Description=Trading Agent Event Processor
+
+[Service]
+Type=oneshot
+WorkingDirectory=/path/to/trading_agent
+ExecStart=/usr/bin/python3 main.py --event-file %i
+User=trader
+```
+
+Call with:
+```bash
+systemctl start trading-agent@/tmp/event.json
+```
+
+**Exit Codes:**
+- `0` - Success: Agent completed analysis and/or executed trades
+- `1` - Error: Fatal error occurred during execution
+- `2` - No Action: Analysis completed but no trades were needed
+
+**Output Files:**
+- Log: `data/trading_agent/logs/session_YYYYMMDD_HHMMSS.log`
+- Report: `data/trading_agent/session_YYYYMMDD_HHMMSS.md`
+
+### 2. Interactive Multi-Turn Mode
+
+For manual trading sessions with back-and-forth conversation.
+
+```bash
+python main.py --interactive
+```
+
+The agent will:
+1. Load the trading system prompt and initialize subagents
+2. Execute initial market assessment
+3. Enter interactive mode for ongoing conversation
 
 Once the agent completes its initial analysis, you can:
 
