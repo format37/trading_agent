@@ -1,0 +1,50 @@
+FROM python:3.11-slim
+
+# Set timezone to UTC
+ENV TZ=UTC
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+# Set working directory
+WORKDIR /app
+
+# Copy requirements first for better caching
+COPY requirements-prod.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements-prod.txt
+
+# Copy application code
+COPY api.py .
+COPY main.py .
+COPY system_prompt.md .
+COPY user_prompt.md .
+COPY entrance.md .
+COPY telemetry.py .
+COPY activity_tracker.py .
+COPY session_reporter.py .
+COPY logger.py .
+
+# Copy prompts directory
+COPY prompts/ ./prompts/
+
+# Create directories for data storage
+RUN mkdir -p data/trading_agent/logs && \
+    mkdir -p data/mcp-binance && \
+    mkdir -p data/mcp-polygon && \
+    mkdir -p data/mcp-perplexity
+
+# Create non-root user for security
+RUN useradd -m -u 1000 appuser && \
+    chown -R appuser:appuser /app
+
+USER appuser
+
+# Expose port
+EXPOSE 8012
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8012/health')" || exit 1
+
+# Run the FastAPI application
+CMD ["python", "api.py"]

@@ -1,0 +1,39 @@
+# ============================================================================
+# Production Requirements for Trading Agent API
+# ============================================================================
+
+# Core agent dependencies
+claude-agent-sdk==0.1.0
+
+# FastAPI web framework
+fastapi>=0.104.0
+
+# Uvicorn ASGI server with standard extras (includes uvloop, httptools)
+uvicorn[standard]>=0.24.0
+
+# Environment variable management
+python-dotenv>=1.0.0
+
+# ============================================================================
+# Optional: Telemetry Dependencies
+# ============================================================================
+# Uncomment these if you enable ENABLE_TELEMETRY=true in .env.prod
+# Note: Telemetry is DISABLED by default for production simplicity
+
+# opentelemetry-api>=1.30.0
+# opentelemetry-sdk>=1.30.0
+# opentelemetry-exporter-otlp>=1.30.0
+# opentelemetry-exporter-otlp-proto-grpc>=1.30.0
+# opentelemetry-exporter-otlp-proto-http>=1.30.0
+# opentelemetry-instrumentation>=0.51b0
+
+# ============================================================================
+# Notes
+# ============================================================================
+# 1. This file contains ONLY production dependencies
+# 2. Telemetry packages are commented out by default
+# 3. To enable telemetry:
+#    a. Uncomment OpenTelemetry packages above
+#    b. Set ENABLE_TELEMETRY=true in .env.prod
+#    c. Configure OTEL_* environment variables
+#    d. Rebuild the Docker image

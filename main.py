@@ -19,11 +19,102 @@ import argparse
 from datetime import datetime, timezone
 from pathlib import Path
 
-# Import telemetry and activity tracking modules
-from telemetry import get_telemetry_manager
-from activity_tracker import AgentActivityTracker
-from session_reporter import SessionReporter
-from logger import setup_session_logging
+# Import telemetry and activity tracking modules (optional)
+# Check if telemetry is enabled via environment variable
+ENABLE_TELEMETRY = os.getenv("ENABLE_TELEMETRY", "false").lower() in ["true", "1", "yes"]
+
+if ENABLE_TELEMETRY:
+    try:
+        from telemetry import get_telemetry_manager
+        from activity_tracker import AgentActivityTracker
+        from session_reporter import SessionReporter
+        from logger import setup_session_logging
+        TELEMETRY_AVAILABLE = True
+    except ImportError as e:
+        print(f"⚠️  Telemetry imports failed: {e}")
+        print("   Continuing without telemetry...")
+        TELEMETRY_AVAILABLE = False
+        ENABLE_TELEMETRY = False
+else:
+    TELEMETRY_AVAILABLE = False
+
+# No-op telemetry classes when telemetry is disabled
+if not TELEMETRY_AVAILABLE:
+    class NoOpActivityTracker:
+        """No-op activity tracker when telemetry is disabled."""
+        def __init__(self):
+            self.end_time = None
+
+        def start_turn(self, turn_count):
+            pass
+
+        def end_turn(self):
+            pass
+
+        def end_session(self):
+            pass
+
+        def record_tool_call(self, tool_name, tool_id, tool_input):
+            pass
+
+        def record_tool_result(self, tool_id, result_summary, is_error):
+            pass
+
+    class NoOpTelemetryManager:
+        """No-op telemetry manager when telemetry is disabled."""
+        def __init__(self, *args, **kwargs):
+            self.enabled = False
+
+        def trace_agent_turn(self, turn_number):
+            from contextlib import contextmanager
+            @contextmanager
+            def _noop():
+                yield None
+            return _noop()
+
+        def trace_thinking(self, thinking_content):
+            pass
+
+        def trace_tool_use(self, tool_name, tool_id, tool_input):
+            pass
+
+        def trace_tool_result(self, tool_id, is_error, result_summary):
+            pass
+
+        def trace_response(self, response_text):
+            pass
+
+        def trace_session_result(self, result_data):
+            pass
+
+        def trace_system_message(self, subtype, data):
+            pass
+
+        def shutdown(self):
+            pass
+
+    class NoOpSessionReporter:
+        """No-op session reporter when telemetry is disabled."""
+        @staticmethod
+        def generate_and_save(activity_tracker):
+            return "session_report_disabled.md"
+
+    class NoOpSessionLogger:
+        """No-op session logger when telemetry is disabled."""
+        def get_log_path(self):
+            return "logging_disabled.log"
+
+        def close(self):
+            pass
+
+    AgentActivityTracker = NoOpActivityTracker
+    SessionReporter = NoOpSessionReporter
+
+    def get_telemetry_manager(*args, **kwargs):
+        return NoOpTelemetryManager()
+
+    def setup_session_logging():
+        return NoOpSessionLogger()
 
 # Load environment variables from .env file
 load_dotenv()
@@ -473,7 +564,10 @@ async def main():
 
     # Setup session logging
     session_logger = setup_session_logging()
-    print(f"📝 Logging to: {session_logger.get_log_path()}\n")
+    if TELEMETRY_AVAILABLE:
+        print(f"📝 Logging to: {session_logger.get_log_path()}\n")
+    else:
+        print(f"📝 Telemetry disabled - running without session logging\n")
 
     # Load system prompt
     with open("system_prompt.md", "r") as f:
@@ -752,18 +846,21 @@ async def main():
     if activity_tracker and not activity_tracker.end_time:
         activity_tracker.end_session()
 
-    try:
-        report_path = SessionReporter.generate_and_save(activity_tracker)
-        print(f"📊 Session report saved to: {report_path}")
-    except Exception as e:
-        print(f"⚠️ Could not save session report: {e}")
-        exit_code = 1
+    if TELEMETRY_AVAILABLE:
+        try:
+            report_path = SessionReporter.generate_and_save(activity_tracker)
+            print(f"📊 Session report saved to: {report_path}")
+        except Exception as e:
+            print(f"⚠️ Could not save session report: {e}")
+            exit_code = 1
 
-    # Shutdown telemetry
-    telemetry.shutdown()
+        # Shutdown telemetry
+        telemetry.shutdown()
 
-    # Close logger
-    session_logger.close()
+        # Close logger
+        session_logger.close()
+    else:
+        print("📊 Telemetry disabled - no session report generated")
 
     # Print exit message
     print("\n" + "=" * 80)
