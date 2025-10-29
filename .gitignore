@@ -3,3 +3,6 @@ tech_prompt.md
 examples/
 __pycache__/
 .env
+reports/*.png
+reports/*.csv
+reports/*.json
