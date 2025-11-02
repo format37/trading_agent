@@ -348,6 +348,168 @@ This project utilizes the following Model Context Protocol (MCP) repositories:
 - **[mcp-binance](https://github.com/format37/mcp-binance)** - Provides comprehensive Binance exchange integration including spot trading, futures trading, account management, and portfolio analytics
 - **[mcp-polygon](https://github.com/format37/mcp-polygon)** - Delivers market data and technical analysis capabilities through Polygon.io APIs including real-time prices, historical data, and technical indicators
 
+### MCP Server Configuration
+
+#### Required MCP Servers
+
+The trading agent requires three MCP servers to function:
+
+1. **Polygon MCP** (`mcp-polygon`) - Market data and technical indicators
+2. **Binance MCP** (`mcp-binance-local`) - Trading execution and account management
+3. **Perplexity MCP** (`mcp-perplexity-local`) - Market intelligence and research
+
+#### Environment Variables
+
+Configure MCP server URLs in `.env.prod`:
+
+```bash
+# Polygon MCP - Market data
+POLYGON_URL=http://mcp-polygon:8006/polygon/
+
+# Binance MCP - Trading execution
+BINANCE_URL=http://mcp-binance-local:8010/binance/
+
+# Perplexity MCP - Market intelligence
+PERPLEXITY_URL=http://mcp-perplexity-local:8011/perplexity/
+
+# Optional: Enable strict MCP connectivity check at startup
+# If set to "true", agent exits immediately if any MCP server is unreachable
+# If set to "false" (default), agent shows warnings but continues
+STRICT_MCP_CHECK=false
+```
+
+#### MCP Connectivity Checks
+
+The trading agent includes two levels of MCP server validation:
+
+**1. Pre-flight Connectivity Check (Optional)**
+- Runs before agent initialization
+- Tests HTTP connectivity to each MCP server
+- Controlled by `STRICT_MCP_CHECK` environment variable
+- Default behavior: Shows warnings but continues (allows testing in development)
+- Production recommendation: Set `STRICT_MCP_CHECK=true` for fail-fast behavior
+
+**2. Runtime MCP Status Check (Mandatory)**
+- Monitors MCP server status during agent initialization
+- Automatically exits if any MCP server fails to connect
+- Provides detailed troubleshooting information
+- Cannot be disabled (required for agent functionality)
+
+#### Docker Network Requirements
+
+**Network Configuration:**
+```yaml
+# docker-compose.prod.yml
+networks:
+  mcp-shared:
+    external: true
+```
+
+**Requirements:**
+- All MCP servers must be on the `mcp-shared` Docker network
+- Trading agent container must also be on `mcp-shared` network
+- Service names (e.g., `mcp-binance-local`) must resolve within the network
+
+**Verify network connectivity:**
+```bash
+# Check if network exists
+docker network inspect mcp-shared
+
+# Check which containers are on the network
+docker network inspect mcp-shared | grep Name
+```
+
+#### Troubleshooting MCP Connection Failures
+
+**Error: MCP servers show `"status": "failed"` in logs**
+
+This indicates the Claude SDK could not connect to one or more MCP servers. Follow these steps:
+
+**1. Check MCP Server Containers Are Running:**
+```bash
+docker ps | grep mcp
+
+# Should show containers like:
+# mcp-polygon
+# mcp-binance-local
+# mcp-perplexity-local
+```
+
+**2. Check MCP Server Logs:**
+```bash
+docker logs mcp-binance-local
+docker logs mcp-polygon
+docker logs mcp-perplexity-local
+```
+
+**3. Verify Network Connectivity:**
+```bash
+# From inside the trading agent container
+docker exec -it trading-agent bash
+curl http://mcp-binance-local:8010/binance/health
+curl http://mcp-polygon:8006/polygon/health
+curl http://mcp-perplexity-local:8011/perplexity/health
+```
+
+**4. Check Environment Variables:**
+```bash
+docker exec trading-agent env | grep _URL
+```
+
+**5. Verify Docker Network:**
+```bash
+# Check if trading-agent is on mcp-shared network
+docker network inspect mcp-shared | grep trading-agent
+
+# Check if MCP servers are on the network
+docker network inspect mcp-shared | grep mcp-
+```
+
+**6. Common Issues:**
+
+- **MCP servers not running**: Start them with `docker-compose up -d`
+- **Wrong network**: Ensure all services use `mcp-shared` network
+- **Wrong URLs**: Verify service names match container names
+- **Port conflicts**: Check if ports 8006, 8010, 8011 are available
+- **Authentication issues**: Check if MCP servers require auth tokens (future feature)
+
+**7. Testing MCP Connectivity:**
+
+Enable strict connectivity check to test before running:
+```bash
+# Set in .env.prod
+STRICT_MCP_CHECK=true
+
+# Run trading agent
+docker-compose -f docker-compose.prod.yml up trading-agent
+
+# Check logs for connectivity test results
+docker logs trading-agent
+```
+
+Expected output when all servers are accessible:
+```
+================================================================================
+Verifying MCP Server Connectivity...
+================================================================================
+✓ Polygon: OK (http://mcp-polygon:8006/polygon/)
+✓ Binance: OK (http://mcp-binance-local:8010/binance/)
+✓ Perplexity: OK (http://mcp-perplexity-local:8011/perplexity/)
+================================================================================
+✓ All MCP servers are accessible
+```
+
+**8. Future Authentication Requirements:**
+
+Currently, MCP servers do not require authentication. However, if authentication is added in the future, you'll need to configure auth tokens:
+
+```bash
+# Add to .env.prod when authentication is implemented
+BINANCE_MCP_TOKEN=your_token_here
+POLYGON_MCP_TOKEN=your_token_here
+PERPLEXITY_MCP_TOKEN=your_token_here
+```
+
 ### Installation
 
 ```bash

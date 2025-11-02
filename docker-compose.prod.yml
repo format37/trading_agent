@@ -27,7 +27,7 @@ services:
       - PYTHONUNBUFFERED=1
     expose:
       - "8012"
-    restart: unless-stopped
+    # restart: unless-stopped
     networks:
       - mcp-shared
     # Note: MCP servers are external services (not defined in this file)

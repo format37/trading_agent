@@ -1,4 +1,5 @@
 import asyncio
+import aiohttp
 from claude_agent_sdk import (
     ClaudeSDKClient,
     ClaudeAgentOptions,
@@ -214,6 +215,47 @@ def display_system_message(sys_msg: SystemMessage):
     print(f"\n[{format_timestamp()}] ⚙️  SYSTEM: {sys_msg.subtype}")
     if sys_msg.data:
         print(f"  Data: {json.dumps(sys_msg.data, indent=2)}")
+
+    # Check for MCP server failures in system message data
+    if sys_msg.data and "mcp_servers" in sys_msg.data:
+        mcp_servers = sys_msg.data["mcp_servers"]
+        failed_servers = []
+
+        # Check each MCP server status
+        for server_info in mcp_servers:
+            if isinstance(server_info, dict):
+                server_name = server_info.get("name", "unknown")
+                server_status = server_info.get("status", "unknown")
+
+                if server_status == "failed":
+                    failed_servers.append(server_name)
+
+        # If any MCP server failed, exit immediately
+        if failed_servers:
+            print(f"\n{'=' * 80}")
+            print(f"❌ CRITICAL ERROR: MCP Server(s) Failed to Initialize")
+            print(f"{'=' * 80}")
+            print(f"Failed servers: {', '.join(failed_servers)}")
+            print(f"\nThe trading agent requires all MCP servers to function properly.")
+            print(f"Please verify:")
+            print(f"  1. MCP servers are running and accessible")
+            print(f"  2. Environment variables are configured correctly:")
+            for server_name in failed_servers:
+                env_var = f"{server_name.upper()}_URL"
+                url = os.getenv(env_var, "NOT SET")
+                print(f"     - {env_var}: {url}")
+            print(f"  3. Docker network connectivity exists (network: mcp-shared)")
+            print(f"  4. Authentication is configured (if required)")
+            print(f"\nTroubleshooting steps:")
+            print(f"  - Check if MCP server containers are running: docker ps")
+            print(f"  - Check MCP server logs: docker logs <mcp-server-container>")
+            print(f"  - Verify network connectivity: docker network inspect mcp-shared")
+            print(f"  - Test MCP server health: curl <MCP_SERVER_URL>/health")
+            print(f"{'=' * 80}\n")
+
+            # Exit immediately - cannot proceed without MCP servers
+            print(f"❌ Exiting due to MCP server failures.\n")
+            sys.exit(1)
 
     # Send telemetry event
     telemetry.trace_system_message(sys_msg.subtype, sys_msg.data if sys_msg.data else {})
@@ -572,11 +614,93 @@ def format_event_prompt(event_data: dict) -> str:
 
     return "\n".join(lines)
 
+async def verify_mcp_connectivity():
+    """
+    Verify MCP servers are accessible before starting the agent.
+    This is an optional pre-flight check controlled by STRICT_MCP_CHECK env var.
+
+    Returns:
+        bool: True if all MCP servers are accessible, False otherwise
+    """
+    servers = {
+        "Polygon": os.getenv("POLYGON_URL", "http://localhost:8009/polygon/"),
+        "Binance": os.getenv("BINANCE_URL", "http://localhost:8010/binance/"),
+        "Perplexity": os.getenv("PERPLEXITY_URL", "http://localhost:8011/perplexity/")
+    }
+
+    print("=" * 80)
+    print("Verifying MCP Server Connectivity...")
+    print("=" * 80)
+
+    all_ok = True
+    for name, url in servers.items():
+        try:
+            # Build health check URL (try both base URL and /health endpoint)
+            base_url = url.rstrip('/')
+
+            # Try to connect with a simple GET request
+            async with aiohttp.ClientSession() as session:
+                # First try the base URL
+                try:
+                    async with session.get(base_url, timeout=aiohttp.ClientTimeout(total=5)) as response:
+                        if response.status in [200, 404]:  # 404 is ok - server is responsive
+                            print(f"✓ {name}: OK ({url})")
+                        else:
+                            print(f"✗ {name}: HTTP {response.status} ({url})")
+                            all_ok = False
+                except Exception:
+                    # If base URL fails, try /health endpoint
+                    health_url = f"{base_url}/health"
+                    async with session.get(health_url, timeout=aiohttp.ClientTimeout(total=5)) as response:
+                        if response.status == 200:
+                            print(f"✓ {name}: OK ({url})")
+                        else:
+                            print(f"✗ {name}: HTTP {response.status} ({url})")
+                            all_ok = False
+        except asyncio.TimeoutError:
+            print(f"✗ {name}: Connection timeout ({url})")
+            all_ok = False
+        except aiohttp.ClientConnectorError as e:
+            print(f"✗ {name}: Cannot connect - {e} ({url})")
+            all_ok = False
+        except Exception as e:
+            print(f"✗ {name}: {type(e).__name__}: {e} ({url})")
+            all_ok = False
+
+    print("=" * 80)
+
+    if not all_ok:
+        print("\n⚠️  MCP Server connectivity check FAILED")
+        print("   Some MCP servers are unreachable. Please verify:")
+        print("   1. MCP servers are running and accessible")
+        print("   2. Docker network configuration is correct (network: mcp-shared)")
+        print("   3. Environment variables are set correctly:")
+        for name, url in servers.items():
+            print(f"      - {name.upper()}_URL: {url}")
+        print("   4. Firewall/network rules allow connections")
+        print("\n   The trading agent may not function correctly without these services.")
+
+        # Check if we should fail fast
+        strict_check = os.getenv("STRICT_MCP_CHECK", "false").lower() in ["true", "1", "yes"]
+        if strict_check:
+            print("\n   STRICT_MCP_CHECK=true - Exiting immediately.\n")
+            sys.exit(1)
+        else:
+            print("\n   STRICT_MCP_CHECK=false - Continuing anyway (may fail later).\n")
+
+        return False
+
+    print("✓ All MCP servers are accessible\n")
+    return True
+
 async def main():
     """Trading Agent with full MCP tool access for market analysis and execution."""
 
     # Parse command-line arguments
     args = parse_arguments()
+
+    # Verify MCP connectivity (optional pre-flight check)
+    await verify_mcp_connectivity()
 
     # Setup session logging
     session_logger = setup_session_logging()
