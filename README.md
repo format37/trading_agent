@@ -65,6 +65,39 @@ docker logs trading-agent
 
 You should see the agent starting without API key errors.
 
+### Troubleshooting
+
+**Error: `EACCES: permission denied, mkdir '/home/appuser/.claude/debug'`**
+
+This occurs when the host directory doesn't have proper permissions. Fix it:
+
+```bash
+# On your VPS host (as ubuntu user)
+sudo mkdir -p /home/ubuntu/.claude
+sudo chown -R 1000:1000 /home/ubuntu/.claude
+sudo chmod -R 755 /home/ubuntu/.claude
+
+# Rebuild and restart container
+docker-compose -f docker-compose.prod.yml down
+docker-compose -f docker-compose.prod.yml up -d --build
+
+# Try authentication again
+docker exec -it trading-agent bash
+claude login
+exit
+```
+
+**Why this happens**: The Docker volume mount uses the host directory's permissions. The container's `appuser` has UID 1000, which must match the host directory ownership.
+
+**Alternative fix** (if ubuntu user has different UID):
+```bash
+# Check your user's UID
+id ubuntu
+
+# Use your user's ownership
+sudo chown -R ubuntu:ubuntu /home/ubuntu/.claude
+```
+
 ## Request
 Step-by-Step Setup in n8n
 
