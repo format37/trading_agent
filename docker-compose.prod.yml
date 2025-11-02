@@ -28,10 +28,8 @@ services:
     restart: unless-stopped
     networks:
       - mcp-shared
-    depends_on:
-      - mcp-polygon
-      - mcp-binance
-      - mcp-perplexity-local
+    # Note: MCP servers are external services (not defined in this file)
+    # They must be running on the mcp-shared network before starting this service
 
 networks:
   mcp-shared:
