@@ -18,7 +18,7 @@ services:
       # Shared data folder for CSV files from MCP tools
       - /home/ubuntu/mcp/data:/app/data
       # Trading agent specific logs and reports
-      - ./data/trading_agent:/app/data/trading_agent
+      - /home/ubuntu/mcp/data/trading_agent:/app/data/trading_agent
     environment:
       - PORT=8012
       - TZ=UTC
@@ -32,12 +32,6 @@ services:
       - mcp-polygon
       - mcp-binance
       - mcp-perplexity-local
-    # healthcheck:
-    #   test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8012/health')"]
-    #   interval: 30s
-    #   timeout: 10s
-    #   retries: 3
-    #   start_period: 40s
 
 networks:
   mcp-shared:

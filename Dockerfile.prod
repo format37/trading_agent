@@ -43,8 +43,8 @@ USER appuser
 EXPOSE 8012
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8012/health')" || exit 1
+# HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+#     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8012/health')" || exit 1
 
 # Run the FastAPI application
 CMD ["python", "api.py"]

@@ -415,6 +415,7 @@ def create_subagent_definitions():
                 "mcp__binance__binance_get_orderbook",
                 "mcp__binance__binance_get_recent_trades",
                 "mcp__binance__binance_get_ticker",
+                "mcp__binance__binance_get_historical_klines",
                 "mcp__binance__binance_py_eval",
                 "mcp__binance__binance_save_tool_notes",
                 "mcp__binance__binance_read_tool_notes",
@@ -433,7 +434,11 @@ def create_subagent_definitions():
                 "mcp__binance__binance_get_account",
                 "mcp__binance__binance_get_open_orders",
                 "mcp__binance__binance_spot_trade_history",
+                "mcp__binance__binance_get_deposit_history",
+                "mcp__binance__binance_get_withdrawal_history",
+                "mcp__binance__binance_get_p2p_history",
                 "mcp__binance__binance_calculate_spot_pnl",
+                "mcp__binance__binance_portfolio_performance",
                 "mcp__binance__trading_notes",
                 "mcp__binance__binance_py_eval",
                 "mcp__binance__binance_save_tool_notes",
@@ -451,6 +456,8 @@ def create_subagent_definitions():
             description="Data analysis specialist. Use when you need rigorous quantitative analysis of CSV data from MCP tools. Expert in statistical analysis, pattern recognition, and data validation.",
             prompt=prompts["data-analyst"],
             tools=[
+                "mcp__binance__binance_get_historical_klines",
+                "mcp__binance__binance_portfolio_performance",
                 "mcp__binance__binance_py_eval",
                 "mcp__binance__binance_save_tool_notes",
                 "mcp__binance__binance_read_tool_notes",
@@ -470,6 +477,12 @@ def create_subagent_definitions():
                 "mcp__binance__binance_get_orderbook",
                 "mcp__binance__binance_get_price",
                 "mcp__binance__binance_get_account",
+                "mcp__binance__binance_get_futures_balances",
+                "mcp__binance__binance_trade_futures_market",
+                "mcp__binance__binance_futures_limit_order",
+                "mcp__binance__binance_get_futures_open_orders",
+                "mcp__binance__binance_cancel_futures_order",
+                "mcp__binance__binance_get_futures_trade_history",
                 "mcp__binance__binance_set_futures_leverage",
                 "mcp__binance__binance_manage_futures_positions",
                 "mcp__binance__binance_calculate_liquidation_risk",
@@ -645,6 +658,10 @@ async def main():
             "mcp__binance__binance_get_account",
             "mcp__binance__binance_get_open_orders",
             "mcp__binance__binance_spot_trade_history",
+            "mcp__binance__binance_get_deposit_history",
+            "mcp__binance__binance_get_withdrawal_history",
+            "mcp__binance__binance_get_p2p_history",
+            "mcp__binance__binance_get_historical_klines",
 
             # Binance MCP - Spot Trading
             "mcp__binance__binance_spot_market_order",
@@ -653,12 +670,19 @@ async def main():
             "mcp__binance__binance_cancel_order",
 
             # Binance MCP - Futures Trading
+            "mcp__binance__binance_get_futures_balances",
+            "mcp__binance__binance_trade_futures_market",
+            "mcp__binance__binance_futures_limit_order",
+            "mcp__binance__binance_get_futures_open_orders",
+            "mcp__binance__binance_cancel_futures_order",
+            "mcp__binance__binance_get_futures_trade_history",
             "mcp__binance__binance_set_futures_leverage",
             "mcp__binance__binance_manage_futures_positions",
             "mcp__binance__binance_calculate_liquidation_risk",
 
             # Binance MCP - Analysis & Risk Management
             "mcp__binance__binance_calculate_spot_pnl",
+            "mcp__binance__binance_portfolio_performance",
             "mcp__binance__binance_trading_notes",
 
             # Binance MCP - Tool Management

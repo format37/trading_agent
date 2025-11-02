@@ -1,146 +1,38 @@
-# ============================================================================
-# SigNoz - OpenTelemetry-native Observability Platform
-# ============================================================================
-#
-# This docker-compose file sets up a local SigNoz instance for viewing
-# your trading agent's telemetry data.
-#
-# Usage:
-#   1. Start SigNoz: docker-compose up -d
-#   2. Access UI: http://localhost:3301
-#   3. Configure .env:
-#        ENABLE_TELEMETRY=true
-#        OTEL_EXPORTER_TYPE=otlp-grpc
-#        OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
-#   4. Run your trading agent: python main.py
-#   5. View traces in SigNoz UI
-#
-# To stop: docker-compose down
-# To remove all data: docker-compose down -v
-#
-# For production deployment, see: https://signoz.io/docs/install/
-
 version: "3.8"
 
 services:
-  # OpenTelemetry Collector - Receives and processes telemetry data
-  otel-collector:
-    image: signoz/signoz-otel-collector:0.88.11
-    container_name: signoz-otel-collector
-    command:
-      [
-        "--config=/etc/otel-collector-config.yaml"
-      ]
+  trading-agent:
+    container_name: trading-agent
+    runtime: runc
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    env_file:
+      - .env.prod
     volumes:
-      - ./signoz/otel-collector-config.yaml:/etc/otel-collector-config.yaml
-    ports:
-      - "4317:4317"   # OTLP gRPC receiver
-      - "4318:4318"   # OTLP HTTP receiver
+      # Shared data folder for CSV files from MCP tools
+      - /home/ubuntu/mcp/data:/app/data
+      # Trading agent specific logs and reports
+      - ./data/trading_agent:/app/data/trading_agent
     environment:
-      - OTEL_RESOURCE_ATTRIBUTES=host.name=signoz-host,os.type=linux
+      - PORT=8012
+      - TZ=UTC
+      - PYTHONUNBUFFERED=1
+    expose:
+      - "8012"
+    restart: unless-stopped
+    networks:
+      - mcp-shared
     depends_on:
-      - clickhouse
-    restart: on-failure
-    networks:
-      - signoz
-
-  # ClickHouse - Database for storing trace data
-  clickhouse:
-    image: clickhouse/clickhouse-server:23.7.3-alpine
-    container_name: signoz-clickhouse
-    volumes:
-      - clickhouse-data:/var/lib/clickhouse/
-      - ./signoz/clickhouse-config.xml:/etc/clickhouse-server/config.d/logging.xml:ro
-      - ./signoz/clickhouse-users.xml:/etc/clickhouse-server/users.d/logging.xml:ro
-    ports:
-      - "9000:9000"
-      - "8123:8123"
-    restart: on-failure
-    healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "localhost:8123/ping"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-    networks:
-      - signoz
-
-  # Query Service - API for querying telemetry data
-  query-service:
-    image: signoz/query-service:0.38.0
-    container_name: signoz-query-service
-    command:
-      [
-        "-config=/root/config/prometheus.yml"
-      ]
-    volumes:
-      - ./signoz/prometheus.yml:/root/config/prometheus.yml
-    environment:
-      - ClickHouseUrl=tcp://clickhouse:9000
-      - STORAGE=clickhouse
-      - GODEBUG=netdns=go
-      - TELEMETRY_ENABLED=true
-      - DEPLOYMENT_TYPE=docker-standalone-amd
-    ports:
-      - "8080:8080"
-    restart: on-failure
-    depends_on:
-      clickhouse:
-        condition: service_healthy
-    networks:
-      - signoz
-
-  # Frontend - Web UI for visualization
-  frontend:
-    image: signoz/frontend:0.38.0
-    container_name: signoz-frontend
-    ports:
-      - "3301:3301"
-    environment:
-      - FRONTEND_API_ENDPOINT=http://query-service:8080
-    restart: on-failure
-    depends_on:
-      - query-service
-    networks:
-      - signoz
-
-  # AlertManager - For alerts (optional)
-  alertmanager:
-    image: signoz/alertmanager:0.23.4
-    container_name: signoz-alertmanager
-    volumes:
-      - ./signoz/alertmanager-config.yaml:/etc/alertmanager/config.yml
-    command:
-      - --queryURL=http://query-service:8080
-      - --storage.path=/data
-    ports:
-      - "9093:9093"
-    restart: on-failure
-    depends_on:
-      - query-service
-    networks:
-      - signoz
+      - mcp-polygon
+      - mcp-binance
+      - mcp-perplexity-local
 
 networks:
-  signoz:
-    driver: bridge
-
-volumes:
-  clickhouse-data:
-    driver: local
-
-# ============================================================================
-# Configuration Files Required
-# ============================================================================
-# You'll need to create a 'signoz' directory with these config files:
-#
-# 1. signoz/otel-collector-config.yaml
-# 2. signoz/clickhouse-config.xml
-# 3. signoz/clickhouse-users.xml
-# 4. signoz/prometheus.yml
-# 5. signoz/alertmanager-config.yaml
-#
-# For simplicity, you can use SigNoz's official repository:
-# git clone https://github.com/SigNoz/signoz.git
-# cd signoz/deploy/docker/clickhouse-setup
-#
-# Or use the minimal configuration provided in README_OBSERVABILITY.md
+  mcp-shared:
+    external: true
