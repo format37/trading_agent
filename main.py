@@ -238,8 +238,11 @@ def display_result(result: ResultMessage):
         else:
             print(f"  {usage}")
 
-    if result.result:
-        print(f"\nResult: {result.result}")
+    # Note: result.result contains the agent's final response text, which has already
+    # been displayed by display_text() when the TextBlock was received earlier.
+    # Printing it here would duplicate the output, so we skip it.
+    # if result.result:
+    #     print(f"\nResult: {result.result}")
 
     print_separator()
 
