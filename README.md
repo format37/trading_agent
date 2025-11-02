@@ -2,6 +2,94 @@
 
 AI-powered cryptocurrency trading agent built with Claude SDK and the Model Context Protocol (MCP), featuring systematic CSV-based data analysis and conservative risk management for live market trading.
 
+## Requirements
+* mcp-binance
+* mcp-polygon
+* mcp-perplexity
+
+## Installation
+```
+git clone https://github.com/format37/trading_agent.git
+cd trading_agent
+sudo mkdir -p /home/ubuntu/mcp/data
+sudo mkdir -p /home/ubuntu/mcp/data/trading_agent/logs
+sudo chown -R $USER:$USER /home/ubuntu/mcp/data
+./compose_prod.sh
+```
+Check health:
+U can call this for example from the n8n container: http://trading-agent:8012/health
+
+## Claude Authentication
+
+After deploying the container, you need to authenticate Claude CLI to use your Claude subscription instead of API keys.
+
+### Authentication Workflow
+
+1. **Connect to the running container**:
+   ```bash
+   docker exec -it trading-agent bash
+   ```
+
+2. **Authenticate Claude CLI**:
+   ```bash
+   claude login
+   ```
+   This will:
+   - Open a browser for authentication
+   - Save credentials to `/home/appuser/.claude/.credentials.json`
+   - Credentials persist across container restarts (via volume mount)
+
+3. **Exit the container**:
+   ```bash
+   exit
+   ```
+
+4. **Restart the trading agent** (to load new credentials):
+   ```bash
+   docker-compose -f docker-compose.prod.yml restart trading-agent
+   ```
+
+### How It Works
+
+- The container includes Node.js 22.x and `@anthropic-ai/claude-code` CLI
+- Authentication credentials are stored in `/home/ubuntu/.claude/` on the host (mounted to container)
+- The Python SDK (`claude-agent-sdk`) reads credentials from `~/.claude/.credentials.json`
+- No API key required in environment variables once authenticated
+
+### Verification
+
+Check if authentication is working:
+```bash
+docker logs trading-agent
+```
+
+You should see the agent starting without API key errors.
+
+## Request
+Step-by-Step Setup in n8n
+
+1. Create HTTP Request Node
+
+In your n8n workflow:
+1. Add HTTP Request node
+2. Configure the request:
+  - Method: POST
+  - URL: http://trading-agent:8012/action
+
+---
+2. Configure Authentication
+
+Select Authentication Type:
+- Choose: Generic Credential Type → Header Auth
+
+Create New Credential:
+1. Click "Create New Credential"
+2. Credential Type: Header Auth
+3. Credential Name: Trading Agent Token (or any name you prefer)
+4. Add header:
+  - Name: Authorization
+  - Value: Bearer abcde (or your actual token)
+
 ## Architecture
 
 ### Subagent-Powered Parallel Analysis

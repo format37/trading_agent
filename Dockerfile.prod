@@ -4,6 +4,17 @@ FROM python:3.11-slim
 ENV TZ=UTC
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
+# Install Node.js 22.x for claude-code CLI
+RUN apt-get update && \
+    apt-get install -y curl gnupg && \
+    curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
+    apt-get install -y nodejs && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install claude-code CLI globally
+RUN npm install -g @anthropic-ai/claude-code
+
 # Set working directory
 WORKDIR /app
 
@@ -35,7 +46,9 @@ RUN mkdir -p data/trading_agent/logs && \
 
 # Create non-root user for security
 RUN useradd -m -u 1000 appuser && \
-    chown -R appuser:appuser /app
+    chown -R appuser:appuser /app && \
+    mkdir -p /home/appuser/.claude && \
+    chown -R appuser:appuser /home/appuser/.claude
 
 USER appuser
 
