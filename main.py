@@ -694,19 +694,19 @@ async def main():
         permission_mode="bypassPermissions",  # Full permissions - no prompts
         cwd=os.getcwd(),
 
-        # MCP Server connections
+        # MCP Server connections (read from environment for Docker compatibility)
         mcp_servers={
             "polygon": {
                 "type": "http",
-                "url": "http://localhost:8009/polygon/"
+                "url": os.getenv("POLYGON_URL", "http://localhost:8009/polygon/")
             },
             "binance": {
                 "type": "http",
-                "url": "http://localhost:8010/binance/"
+                "url": os.getenv("BINANCE_URL", "http://localhost:8010/binance/")
             },
             "perplexity": {
                 "type": "http",
-                "url": "http://localhost:8011/perplexity/"
+                "url": os.getenv("PERPLEXITY_URL", "http://localhost:8011/perplexity/")
             }
         }
     )
