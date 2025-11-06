@@ -37,3 +37,5 @@ python-dotenv>=1.0.0
 #    b. Set ENABLE_TELEMETRY=true in .env.prod
 #    c. Configure OTEL_* environment variables
 #    d. Rebuild the Docker image
+
+aiohttp==3.13.2

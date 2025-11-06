@@ -7,3 +7,5 @@ opentelemetry-exporter-otlp>=1.30.0
 opentelemetry-exporter-otlp-proto-grpc>=1.30.0
 opentelemetry-exporter-otlp-proto-http>=1.30.0
 opentelemetry-instrumentation>=0.51b0
+
+aiohttp==3.13.2
