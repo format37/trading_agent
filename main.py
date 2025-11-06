@@ -635,28 +635,20 @@ async def verify_mcp_connectivity():
     all_ok = True
     for name, url in servers.items():
         try:
-            # Build health check URL (try both base URL and /health endpoint)
-            base_url = url.rstrip('/')
+            # Build health check URL - use /health endpoint which bypasses authentication
+            # Health endpoint is at root level (e.g., http://host:port/health)
+            from urllib.parse import urlparse
+            parsed = urlparse(url)
+            health_url = f"{parsed.scheme}://{parsed.netloc}/health"
 
-            # Try to connect with a simple GET request
+            # Connect to the health endpoint
             async with aiohttp.ClientSession() as session:
-                # First try the base URL
-                try:
-                    async with session.get(base_url, timeout=aiohttp.ClientTimeout(total=5)) as response:
-                        if response.status in [200, 404]:  # 404 is ok - server is responsive
-                            print(f"✓ {name}: OK ({url})")
-                        else:
-                            print(f"✗ {name}: HTTP {response.status} ({url})")
-                            all_ok = False
-                except Exception:
-                    # If base URL fails, try /health endpoint
-                    health_url = f"{base_url}/health"
-                    async with session.get(health_url, timeout=aiohttp.ClientTimeout(total=5)) as response:
-                        if response.status == 200:
-                            print(f"✓ {name}: OK ({url})")
-                        else:
-                            print(f"✗ {name}: HTTP {response.status} ({url})")
-                            all_ok = False
+                async with session.get(health_url, timeout=aiohttp.ClientTimeout(total=5)) as response:
+                    if response.status == 200:
+                        print(f"✓ {name}: OK ({url})")
+                    else:
+                        print(f"✗ {name}: HTTP {response.status} ({health_url})")
+                        all_ok = False
         except asyncio.TimeoutError:
             print(f"✗ {name}: Connection timeout ({url})")
             all_ok = False
