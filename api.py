@@ -255,8 +255,8 @@ async def trigger_action(
 
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 future = executor.submit(asyncio.run, agent_main())
-                # Wait for completion (with timeout)
-                future.result(timeout=600)  # 10 minute timeout
+                # Wait for completion and get result (with timeout)
+                agent_result = future.result(timeout=600)  # 10 minute timeout
 
             end_time = datetime.now(timezone.utc)
             duration_seconds = (end_time - start_time).total_seconds()
@@ -265,9 +265,56 @@ async def trigger_action(
             logger.info(f"Agent execution completed in {duration_seconds:.2f} seconds")
             logger.info("=" * 80)
 
+            # Build response with backward compatibility
             response_data = {
                 "status": "success",
                 "message": "Trading agent executed successfully",
+                "timestamp": end_time.isoformat(),
+                "duration_seconds": duration_seconds,
+                "event_data": event_data
+            }
+
+            # Add new trading data fields if available
+            if agent_result and isinstance(agent_result, dict):
+                response_data["trading_notes"] = agent_result.get("trading_notes", "")
+                response_data["actions"] = agent_result.get("actions", [])
+
+                # Include session report path if available
+                if agent_result.get("session_report_path"):
+                    response_data["session_report"] = agent_result["session_report_path"]
+                    logger.info(f"Session report: {agent_result['session_report_path']}")
+            else:
+                # Fallback: Try to read session report the old way
+                try:
+                    log_dir = Path("data/trading_agent")
+                    report_files = sorted(log_dir.glob("session_*.md"), reverse=True)
+                    if report_files:
+                        latest_report = report_files[0]
+                        response_data["session_report"] = str(latest_report)
+                        logger.info(f"Session report: {latest_report}")
+                except Exception as e:
+                    logger.warning(f"Could not read session report: {e}")
+
+            return response_data
+
+        except concurrent.futures.TimeoutError:
+            logger.error("Agent execution timed out")
+            raise HTTPException(
+                status_code=504,
+                detail="Agent execution timed out (10 minute limit)"
+            )
+        except SystemExit as e:
+            # Agent may exit with sys.exit() (this shouldn't happen with new return-based approach)
+            exit_code = e.code if isinstance(e.code, int) else 0
+            end_time = datetime.now(timezone.utc)
+            duration_seconds = (end_time - start_time).total_seconds()
+
+            logger.info(f"Agent completed with exit code: {exit_code}")
+
+            response_data = {
+                "status": "completed" if exit_code == 0 else "error",
+                "message": f"Agent completed with exit code {exit_code}",
+                "exit_code": exit_code,
                 "timestamp": end_time.isoformat(),
                 "duration_seconds": duration_seconds,
                 "event_data": event_data
@@ -280,34 +327,10 @@ async def trigger_action(
                 if report_files:
                     latest_report = report_files[0]
                     response_data["session_report"] = str(latest_report)
-                    logger.info(f"Session report: {latest_report}")
             except Exception as e:
                 logger.warning(f"Could not read session report: {e}")
 
             return response_data
-
-        except concurrent.futures.TimeoutError:
-            logger.error("Agent execution timed out")
-            raise HTTPException(
-                status_code=504,
-                detail="Agent execution timed out (10 minute limit)"
-            )
-        except SystemExit as e:
-            # Agent may exit with sys.exit()
-            exit_code = e.code if isinstance(e.code, int) else 0
-            end_time = datetime.now(timezone.utc)
-            duration_seconds = (end_time - start_time).total_seconds()
-
-            logger.info(f"Agent completed with exit code: {exit_code}")
-
-            return {
-                "status": "completed" if exit_code == 0 else "error",
-                "message": f"Agent completed with exit code {exit_code}",
-                "exit_code": exit_code,
-                "timestamp": end_time.isoformat(),
-                "duration_seconds": duration_seconds,
-                "event_data": event_data
-            }
         except Exception as e:
             logger.error(f"Agent execution failed: {e}", exc_info=True)
             raise HTTPException(

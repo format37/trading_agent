@@ -709,6 +709,11 @@ async def main():
     else:
         print(f"📝 Telemetry disabled - running without session logging\n")
 
+    # Variables to collect trading data for API response
+    agent_text_responses = []  # Collect all TextBlock responses
+    binance_notes_content = []  # Collect binance_trading_notes tool outputs
+    trading_tool_calls = []  # Collect trading-specific tool calls
+
     # Load system prompt
     with open("system_prompt.md", "r") as f:
         system_prompt = f.read()
@@ -887,10 +892,20 @@ async def main():
                                 display_thinking(block)
                             elif isinstance(block, TextBlock):
                                 display_text(block)
+                                # Capture agent's text response for API
+                                agent_text_responses.append(block.text)
                             elif isinstance(block, ToolUseBlock):
                                 display_tool_use(block)
                             elif isinstance(block, ToolResultBlock):
                                 display_tool_result(block)
+                                # Capture binance_trading_notes results
+                                if hasattr(block, 'tool_use_id'):
+                                    # Find the corresponding tool call
+                                    for turn in activity_tracker.turns:
+                                        for tool_call in turn.tool_calls:
+                                            if tool_call.tool_id == block.tool_use_id and tool_call.tool_name == "mcp__binance__binance_trading_notes":
+                                                if not block.is_error and block.content:
+                                                    binance_notes_content.append(str(block.content))
                     elif isinstance(message, SystemMessage):
                         display_system_message(message)
                     elif isinstance(message, ResultMessage):
@@ -955,10 +970,20 @@ async def main():
                                             display_thinking(block)
                                         elif isinstance(block, TextBlock):
                                             display_text(block)
+                                            # Capture agent's text response for API
+                                            agent_text_responses.append(block.text)
                                         elif isinstance(block, ToolUseBlock):
                                             display_tool_use(block)
                                         elif isinstance(block, ToolResultBlock):
                                             display_tool_result(block)
+                                            # Capture binance_trading_notes results
+                                            if hasattr(block, 'tool_use_id'):
+                                                # Find the corresponding tool call
+                                                for turn in activity_tracker.turns:
+                                                    for tool_call in turn.tool_calls:
+                                                        if tool_call.tool_id == block.tool_use_id and tool_call.tool_name == "mcp__binance__binance_trading_notes":
+                                                            if not block.is_error and block.content:
+                                                                binance_notes_content.append(str(block.content))
                                 elif isinstance(message, SystemMessage):
                                     display_system_message(message)
                                 elif isinstance(message, ResultMessage):
@@ -997,9 +1022,24 @@ async def main():
     if activity_tracker and not activity_tracker.end_time:
         activity_tracker.end_session()
 
+    # Collect trading actions from activity tracker using helper method
+    trading_actions = activity_tracker.get_trading_actions() if hasattr(activity_tracker, 'get_trading_actions') else []
+
+    # Compile trading notes from agent responses and binance_trading_notes tool
+    trading_notes_combined = ""
+    if agent_text_responses:
+        trading_notes_combined = "\n\n".join(agent_text_responses)
+    if binance_notes_content:
+        if trading_notes_combined:
+            trading_notes_combined += "\n\n## Trading Notes from Binance Tool:\n" + "\n".join(binance_notes_content)
+        else:
+            trading_notes_combined = "\n".join(binance_notes_content)
+
+    session_report_path = None
     if TELEMETRY_AVAILABLE:
         try:
             report_path = SessionReporter.generate_and_save(activity_tracker)
+            session_report_path = str(report_path)
             print(f"📊 Session report saved to: {report_path}")
         except Exception as e:
             print(f"⚠️ Could not save session report: {e}")
@@ -1023,12 +1063,22 @@ async def main():
         print("ℹ️  Trading session completed - no action taken")
     print("=" * 80 + "\n")
 
-    # Exit with appropriate code
-    sys.exit(exit_code)
+    # Return structured data instead of sys.exit() for API usage
+    return {
+        "exit_code": exit_code,
+        "trading_notes": trading_notes_combined,
+        "actions": trading_actions,
+        "session_report_path": session_report_path
+    }
 
 if __name__ == "__main__":
     try:
-        asyncio.run(main())
+        result = asyncio.run(main())
+        # When running directly (not via API), exit with the exit code
+        if result and isinstance(result, dict):
+            sys.exit(result.get("exit_code", 0))
+        else:
+            sys.exit(0)
     except Exception as e:
         print(f"\n❌ Fatal error: {e}")
         sys.exit(1)

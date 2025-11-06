@@ -208,3 +208,31 @@ class AgentActivityTracker:
                 for exec in turn.subagent_executions
             ]
         }
+
+    def get_trading_actions(self) -> List[Dict[str, Any]]:
+        """
+        Extract only trading-specific tool calls from all turns.
+        Returns a list of trading actions with timestamp and type.
+        """
+        trading_tool_names = [
+            "mcp__binance__binance_spot_market_order",
+            "mcp__binance__binance_spot_limit_order",
+            "mcp__binance__binance_spot_oco_order",
+            "mcp__binance__binance_cancel_order",
+            "mcp__binance__binance_trade_futures_market",
+            "mcp__binance__binance_futures_limit_order",
+            "mcp__binance__binance_cancel_futures_order"
+        ]
+
+        trading_actions = []
+        for turn in self.turns:
+            for tool_call in turn.tool_calls:
+                if tool_call.tool_name in trading_tool_names:
+                    trading_actions.append({
+                        "type": tool_call.tool_name.replace("mcp__binance__", ""),
+                        "timestamp": tool_call.timestamp,
+                        "tool_id": tool_call.tool_id,
+                        "turn_number": turn.turn_number
+                    })
+
+        return trading_actions
