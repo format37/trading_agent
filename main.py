@@ -655,8 +655,14 @@ async def main():
     binance_notes_content = []  # Collect binance_trading_notes tool outputs
     trading_tool_calls = []  # Collect trading-specific tool calls
 
-    # Load system prompt
-    with open("system_prompt.md", "r") as f:
+    # Load system prompt (use test prompts if configured)
+    use_test_prompts = os.getenv("USE_TEST_PROMPTS", "false").lower() in ["true", "1", "yes"]
+    system_prompt_file = "test_system_prompt.md" if use_test_prompts else "system_prompt.md"
+
+    if use_test_prompts:
+        print("🧪 Using TEST prompts (USE_TEST_PROMPTS=true)\n")
+
+    with open(system_prompt_file, "r") as f:
         system_prompt = f.read()
 
     # Create subagent definitions
@@ -791,8 +797,9 @@ async def main():
 
     try:
         async with ClaudeSDKClient(options=options) as client:
-            # Initial trading prompt
-            with open("user_prompt.md", "r") as f:
+            # Initial trading prompt (use test prompts if configured)
+            user_prompt_file = "test_user_prompt.md" if use_test_prompts else "user_prompt.md"
+            with open(user_prompt_file, "r") as f:
                 user_prompt = f.read()
 
             # Load entrance prompt (optional trigger for market check)
