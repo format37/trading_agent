@@ -1,0 +1,1 @@
+docker logs -f --timestamps --since 24h trading-agent
