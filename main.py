@@ -20,24 +20,9 @@ import argparse
 from datetime import datetime, timezone
 from pathlib import Path
 
-# Import telemetry and activity tracking modules (optional)
-# Check if telemetry is enabled via environment variable
-ENABLE_TELEMETRY = os.getenv("ENABLE_TELEMETRY", "false").lower() in ["true", "1", "yes"]
-
-if ENABLE_TELEMETRY:
-    try:
-        from telemetry import get_telemetry_manager
-        from activity_tracker import AgentActivityTracker
-        from session_reporter import SessionReporter
-        from logger import setup_session_logging
-        TELEMETRY_AVAILABLE = True
-    except ImportError as e:
-        print(f"⚠️  Telemetry imports failed: {e}")
-        print("   Continuing without telemetry...")
-        TELEMETRY_AVAILABLE = False
-        ENABLE_TELEMETRY = False
-else:
-    TELEMETRY_AVAILABLE = False
+# Telemetry disabled - using no-op implementations
+ENABLE_TELEMETRY = False
+TELEMETRY_AVAILABLE = False
 
 # No-op telemetry classes when telemetry is disabled
 if not TELEMETRY_AVAILABLE:
@@ -120,11 +105,11 @@ if not TELEMETRY_AVAILABLE:
 # Load environment variables from .env file
 load_dotenv()
 
-# Initialize activity tracker for session reporting
+# Initialize activity tracker (no-op when telemetry disabled)
 activity_tracker = AgentActivityTracker()
 
-# Initialize telemetry with activity tracking
-telemetry = get_telemetry_manager(service_name="claude-trading-agent", activity_tracker=activity_tracker)
+# Initialize telemetry manager (no-op when telemetry disabled)
+telemetry = get_telemetry_manager()
 
 # ============================================================================
 # Message Display Helpers
@@ -153,9 +138,6 @@ def display_thinking(thinking_block: ThinkingBlock):
         print(f"  {line}")
     print("-" * 80)
 
-    # Send telemetry event
-    telemetry.trace_thinking(thinking_block.thinking)
-
 def display_tool_use(tool_block: ToolUseBlock):
     """Display tool usage with inputs."""
     print(f"\n[{format_timestamp()}] 🔧 TOOL USE: {tool_block.name}")
@@ -165,9 +147,6 @@ def display_tool_use(tool_block: ToolUseBlock):
     input_json = json.dumps(tool_block.input, indent=4)
     for line in input_json.split('\n'):
         print(f"    {line}")
-
-    # Send telemetry event
-    telemetry.trace_tool_use(tool_block.name, tool_block.id, tool_block.input)
 
 def display_tool_result(result_block: ToolResultBlock):
     """Display tool execution results."""
@@ -194,21 +173,10 @@ def display_tool_result(result_block: ToolResultBlock):
         else:
             print(f"  Result: {result_block.content}")
 
-    # Send telemetry event
-    result_summary = str(result_block.content) if result_block.content else ""
-    telemetry.trace_tool_result(
-        result_block.tool_use_id,
-        result_block.is_error if result_block.is_error else False,
-        result_summary
-    )
-
 def display_text(text_block: TextBlock):
     """Display text content from agent."""
     print(f"\n[{format_timestamp()}] 💬 RESPONSE:")
     print(text_block.text)
-
-    # Send telemetry event
-    telemetry.trace_response(text_block.text)
 
 def display_system_message(sys_msg: SystemMessage):
     """Display system messages."""
@@ -257,9 +225,6 @@ def display_system_message(sys_msg: SystemMessage):
             print(f"❌ Exiting due to MCP server failures.\n")
             sys.exit(1)
 
-    # Send telemetry event
-    telemetry.trace_system_message(sys_msg.subtype, sys_msg.data if sys_msg.data else {})
-
 def display_result(result: ResultMessage):
     """Display final result with usage statistics."""
     print_section_header("SESSION RESULT")
@@ -287,18 +252,6 @@ def display_result(result: ResultMessage):
     #     print(f"\nResult: {result.result}")
 
     print_separator()
-
-    # Send telemetry event
-    result_data = {
-        "duration_ms": result.duration_ms,
-        "duration_api_ms": result.duration_api_ms,
-        "num_turns": result.num_turns,
-        "is_error": result.is_error,
-        "session_id": result.session_id,
-        "total_cost_usd": result.total_cost_usd,
-        "usage": result.usage
-    }
-    telemetry.trace_session_result(result_data)
 
 def load_subagent_prompts():
     """Load all subagent prompts from the prompts directory."""
@@ -694,12 +647,8 @@ async def main():
     # Verify MCP connectivity (optional pre-flight check)
     await verify_mcp_connectivity()
 
-    # Setup session logging
-    session_logger = setup_session_logging()
-    if TELEMETRY_AVAILABLE:
-        print(f"📝 Logging to: {session_logger.get_log_path()}\n")
-    else:
-        print(f"📝 Telemetry disabled - running without session logging\n")
+    # Telemetry disabled
+    print(f"📝 Telemetry disabled - running without session logging\n")
 
     # Variables to collect trading data for API response
     agent_text_responses = []  # Collect all TextBlock responses
@@ -875,35 +824,34 @@ async def main():
             print(f"[Turn {turn_count}] Agent Response")
             print(f"{'=' * 80}")
 
-            # Wrap in telemetry trace
-            with telemetry.trace_agent_turn(turn_count):
-                async for message in client.receive_response():
-                    if isinstance(message, AssistantMessage):
-                        for block in message.content:
-                            if isinstance(block, ThinkingBlock):
-                                display_thinking(block)
-                            elif isinstance(block, TextBlock):
-                                display_text(block)
-                                # Capture agent's text response for API
-                                agent_text_responses.append(block.text)
-                            elif isinstance(block, ToolUseBlock):
-                                display_tool_use(block)
-                            elif isinstance(block, ToolResultBlock):
-                                display_tool_result(block)
-                                # Capture binance_trading_notes results
-                                if hasattr(block, 'tool_use_id'):
-                                    # Find the corresponding tool call
-                                    for turn in activity_tracker.turns:
-                                        for tool_call in turn.tool_calls:
-                                            if tool_call.tool_id == block.tool_use_id and tool_call.tool_name == "mcp__binance__binance_trading_notes":
-                                                if not block.is_error and block.content:
-                                                    binance_notes_content.append(str(block.content))
-                    elif isinstance(message, SystemMessage):
-                        display_system_message(message)
-                    elif isinstance(message, ResultMessage):
-                        display_result(message)
-                        # End the current turn when we receive the result
-                        activity_tracker.end_turn()
+            # Process agent response
+            async for message in client.receive_response():
+                if isinstance(message, AssistantMessage):
+                    for block in message.content:
+                        if isinstance(block, ThinkingBlock):
+                            display_thinking(block)
+                        elif isinstance(block, TextBlock):
+                            display_text(block)
+                            # Capture agent's text response for API
+                            agent_text_responses.append(block.text)
+                        elif isinstance(block, ToolUseBlock):
+                            display_tool_use(block)
+                        elif isinstance(block, ToolResultBlock):
+                            display_tool_result(block)
+                            # Capture binance_trading_notes results
+                            if hasattr(block, 'tool_use_id'):
+                                # Find the corresponding tool call
+                                for turn in activity_tracker.turns:
+                                    for tool_call in turn.tool_calls:
+                                        if tool_call.tool_id == block.tool_use_id and tool_call.tool_name == "mcp__binance__binance_trading_notes":
+                                            if not block.is_error and block.content:
+                                                binance_notes_content.append(str(block.content))
+                elif isinstance(message, SystemMessage):
+                    display_system_message(message)
+                elif isinstance(message, ResultMessage):
+                    display_result(message)
+                    # End the current turn when we receive the result
+                    activity_tracker.end_turn()
 
             # Interactive or single-turn mode
             if interactive_mode:
@@ -953,35 +901,34 @@ async def main():
                         print(f"[Turn {turn_count}] Agent Response")
                         print(f"{'=' * 80}")
 
-                        # Wrap in telemetry trace
-                        with telemetry.trace_agent_turn(turn_count):
-                            async for message in client.receive_response():
-                                if isinstance(message, AssistantMessage):
-                                    for block in message.content:
-                                        if isinstance(block, ThinkingBlock):
-                                            display_thinking(block)
-                                        elif isinstance(block, TextBlock):
-                                            display_text(block)
-                                            # Capture agent's text response for API
-                                            agent_text_responses.append(block.text)
-                                        elif isinstance(block, ToolUseBlock):
-                                            display_tool_use(block)
-                                        elif isinstance(block, ToolResultBlock):
-                                            display_tool_result(block)
-                                            # Capture binance_trading_notes results
-                                            if hasattr(block, 'tool_use_id'):
-                                                # Find the corresponding tool call
-                                                for turn in activity_tracker.turns:
-                                                    for tool_call in turn.tool_calls:
-                                                        if tool_call.tool_id == block.tool_use_id and tool_call.tool_name == "mcp__binance__binance_trading_notes":
-                                                            if not block.is_error and block.content:
-                                                                binance_notes_content.append(str(block.content))
-                                elif isinstance(message, SystemMessage):
-                                    display_system_message(message)
-                                elif isinstance(message, ResultMessage):
-                                    display_result(message)
-                                    # End the current turn when we receive the result
-                                    activity_tracker.end_turn()
+                        # Process agent response
+                        async for message in client.receive_response():
+                            if isinstance(message, AssistantMessage):
+                                for block in message.content:
+                                    if isinstance(block, ThinkingBlock):
+                                        display_thinking(block)
+                                    elif isinstance(block, TextBlock):
+                                        display_text(block)
+                                        # Capture agent's text response for API
+                                        agent_text_responses.append(block.text)
+                                    elif isinstance(block, ToolUseBlock):
+                                        display_tool_use(block)
+                                    elif isinstance(block, ToolResultBlock):
+                                        display_tool_result(block)
+                                        # Capture binance_trading_notes results
+                                        if hasattr(block, 'tool_use_id'):
+                                            # Find the corresponding tool call
+                                            for turn in activity_tracker.turns:
+                                                for tool_call in turn.tool_calls:
+                                                    if tool_call.tool_id == block.tool_use_id and tool_call.tool_name == "mcp__binance__binance_trading_notes":
+                                                        if not block.is_error and block.content:
+                                                            binance_notes_content.append(str(block.content))
+                            elif isinstance(message, SystemMessage):
+                                display_system_message(message)
+                            elif isinstance(message, ResultMessage):
+                                display_result(message)
+                                # End the current turn when we receive the result
+                                activity_tracker.end_turn()
 
                         print()  # Add spacing after response
 
@@ -1028,22 +975,7 @@ async def main():
             trading_notes_combined = "\n".join(binance_notes_content)
 
     session_report_path = None
-    if TELEMETRY_AVAILABLE:
-        try:
-            report_path = SessionReporter.generate_and_save(activity_tracker)
-            session_report_path = str(report_path)
-            print(f"📊 Session report saved to: {report_path}")
-        except Exception as e:
-            print(f"⚠️ Could not save session report: {e}")
-            exit_code = 1
-
-        # Shutdown telemetry
-        telemetry.shutdown()
-
-        # Close logger
-        session_logger.close()
-    else:
-        print("📊 Telemetry disabled - no session report generated")
+    print("📊 Telemetry disabled - no session report generated")
 
     # Print exit message
     print("\n" + "=" * 80)
