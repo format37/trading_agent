@@ -39,7 +39,7 @@ logger = logging.getLogger(__name__)
 # Import the agent's main function
 # We'll import dynamically to avoid import errors if dependencies are missing
 try:
-    from main import main as agent_main
+    from trading_agent import main as agent_main
     AGENT_AVAILABLE = True
 except ImportError as e:
     logger.error(f"Failed to import agent main: {e}")
@@ -240,7 +240,7 @@ async def trigger_action(
     original_argv = sys.argv.copy()
     try:
         # Set up sys.argv for the agent
-        sys.argv = ['main.py']
+        sys.argv = ['trading_agent.py']
         if event_file_path:
             sys.argv.extend(['--event-file', event_file_path])
 
