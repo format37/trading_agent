@@ -24,6 +24,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, Request, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 from starlette.middleware.base import BaseHTTPMiddleware
 
 # Load environment variables
@@ -44,6 +45,13 @@ try:
 except ImportError as e:
     logger.error(f"Failed to import agent main: {e}")
     AGENT_AVAILABLE = False
+
+
+class ActionRequest(BaseModel):
+    """Request model for /action endpoint."""
+    system_prompt: Optional[str] = None
+    user_prompt: Optional[str] = None
+    event_data: Optional[Union[str, dict]] = None
 
 
 class TokenAuthMiddleware(BaseHTTPMiddleware):
@@ -172,15 +180,12 @@ async def health_check():
 
 
 @app.post("/action")
-async def trigger_action(
-    request: Request,
-    event: Optional[Union[dict, str]] = Body(None)
-):
+async def trigger_action(action_request: ActionRequest):
     """
-    Trigger the trading agent with optional event data.
+    Trigger the trading agent with optional prompts and event data.
 
     Args:
-        event: Event data (JSON object or text string)
+        action_request: Request containing optional system_prompt, user_prompt, and event_data
 
     Returns:
         JSON response with execution status and session info
@@ -195,23 +200,29 @@ async def trigger_action(
     logger.info("Received action request")
     logger.info("=" * 80)
 
+    # Log custom prompts if provided
+    if action_request.system_prompt:
+        logger.info("Using custom system prompt from request")
+    if action_request.user_prompt:
+        logger.info("Using custom user prompt from request")
+
     # Parse event data
     event_data = None
-    if event:
-        if isinstance(event, dict):
-            event_data = event
+    if action_request.event_data:
+        if isinstance(action_request.event_data, dict):
+            event_data = action_request.event_data
             logger.info(f"Event data (JSON): {json.dumps(event_data, indent=2)}")
-        elif isinstance(event, str):
+        elif isinstance(action_request.event_data, str):
             # Try to parse as JSON first
             try:
-                event_data = json.loads(event)
+                event_data = json.loads(action_request.event_data)
                 logger.info(f"Event data (parsed JSON): {json.dumps(event_data, indent=2)}")
             except json.JSONDecodeError:
                 # Treat as plain text
-                event_data = {"type": "text", "message": event}
-                logger.info(f"Event data (text): {event}")
+                event_data = {"type": "text", "message": action_request.event_data}
+                logger.info(f"Event data (text): {action_request.event_data}")
         else:
-            logger.warning(f"Unknown event type: {type(event)}")
+            logger.warning(f"Unknown event type: {type(action_request.event_data)}")
     else:
         logger.info("No event data provided - running standard analysis")
 
@@ -253,8 +264,15 @@ async def trigger_action(
             # We need to run it in a separate thread to avoid event loop conflicts
             import concurrent.futures
 
+            # Prepare kwargs for agent with custom prompts if provided
+            agent_kwargs = {}
+            if action_request.system_prompt:
+                agent_kwargs['custom_system_prompt'] = action_request.system_prompt
+            if action_request.user_prompt:
+                agent_kwargs['custom_user_prompt'] = action_request.user_prompt
+
             with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(asyncio.run, agent_main())
+                future = executor.submit(asyncio.run, agent_main(**agent_kwargs))
                 # Wait for completion and get result (with timeout)
                 agent_result = future.result(timeout=600)  # 10 minute timeout
 

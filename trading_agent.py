@@ -19,6 +19,7 @@ import json
 import argparse
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Optional
 
 # Telemetry disabled - using no-op implementations
 ENABLE_TELEMETRY = False
@@ -567,6 +568,38 @@ def format_event_prompt(event_data: dict) -> str:
 
     return "\n".join(lines)
 
+def load_prompts(custom_system_prompt: Optional[str] = None,
+                 custom_user_prompt: Optional[str] = None) -> tuple[str, str]:
+    """
+    Load system and user prompts, with optional custom overrides.
+
+    Args:
+        custom_system_prompt: Custom system prompt text (overrides file)
+        custom_user_prompt: Custom user prompt text (overrides file)
+
+    Returns:
+        Tuple of (system_prompt, user_prompt)
+    """
+    # System prompt
+    if custom_system_prompt:
+        system_prompt = custom_system_prompt
+    else:
+        use_test_prompts = os.getenv("USE_TEST_PROMPTS", "false").lower() in ["true", "1", "yes"]
+        system_prompt_file = "test_system_prompt.md" if use_test_prompts else "system_prompt.md"
+        with open(system_prompt_file, "r") as f:
+            system_prompt = f.read()
+
+    # User prompt
+    if custom_user_prompt:
+        user_prompt = custom_user_prompt
+    else:
+        use_test_prompts = os.getenv("USE_TEST_PROMPTS", "false").lower() in ["true", "1", "yes"]
+        user_prompt_file = "test_user_prompt.md" if use_test_prompts else "user_prompt.md"
+        with open(user_prompt_file, "r") as f:
+            user_prompt = f.read()
+
+    return system_prompt, user_prompt
+
 async def verify_mcp_connectivity():
     """
     Verify MCP servers are accessible before starting the agent.
@@ -638,8 +671,14 @@ async def verify_mcp_connectivity():
     print("✓ All MCP servers are accessible\n")
     return True
 
-async def main():
-    """Trading Agent with full MCP tool access for market analysis and execution."""
+async def main(custom_system_prompt: Optional[str] = None,
+               custom_user_prompt: Optional[str] = None):
+    """Trading Agent with full MCP tool access for market analysis and execution.
+
+    Args:
+        custom_system_prompt: Optional custom system prompt (overrides file-based prompt)
+        custom_user_prompt: Optional custom user prompt (overrides file-based prompt)
+    """
 
     # Parse command-line arguments
     args = parse_arguments()
@@ -655,15 +694,20 @@ async def main():
     binance_notes_content = []  # Collect binance_trading_notes tool outputs
     trading_tool_calls = []  # Collect trading-specific tool calls
 
-    # Load system prompt (use test prompts if configured)
+    # Load prompts (use custom prompts if provided, otherwise load from files)
+    system_prompt, base_user_prompt = load_prompts(custom_system_prompt, custom_user_prompt)
+
+    # Show which prompt mode is active
     use_test_prompts = os.getenv("USE_TEST_PROMPTS", "false").lower() in ["true", "1", "yes"]
-    system_prompt_file = "test_system_prompt.md" if use_test_prompts else "system_prompt.md"
+    if custom_system_prompt:
+        print("🔧 Using custom system prompt from API\n")
+    elif use_test_prompts:
+        print("🧪 Using TEST system prompt (USE_TEST_PROMPTS=true)\n")
 
-    if use_test_prompts:
-        print("🧪 Using TEST prompts (USE_TEST_PROMPTS=true)\n")
-
-    with open(system_prompt_file, "r") as f:
-        system_prompt = f.read()
+    if custom_user_prompt:
+        print("🔧 Using custom user prompt from API\n")
+    elif use_test_prompts:
+        print("🧪 Using TEST user prompt (USE_TEST_PROMPTS=true)\n")
 
     # Create subagent definitions
     print("=" * 80)
@@ -797,15 +841,8 @@ async def main():
 
     try:
         async with ClaudeSDKClient(options=options) as client:
-            # Initial trading prompt (use test prompts if configured)
-            user_prompt_file = "test_user_prompt.md" if use_test_prompts else "user_prompt.md"
-            with open(user_prompt_file, "r") as f:
-                user_prompt = f.read()
-
-            # Load entrance prompt (optional trigger for market check)
-            with open("entrance.md", "r") as f:
-                entrance_prompt = f.read()
-                user_prompt = f"{user_prompt}\n\n{entrance_prompt}"
+            # Use the base user prompt loaded earlier
+            user_prompt = base_user_prompt
 
             # Load and append event data if provided
             if args.event_file:
