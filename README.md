@@ -1,7 +1,8 @@
-# Claude SDK Trading Agent
+# Crypto Trading Agent
 
 ### Overview
 AI-powered cryptocurrency trading agent built with Claude SDK and the Model Context Protocol (MCP), featuring systematic CSV-based data analysis and conservative risk management for live market trading.
+Tradin Agent deployed in docker and waiting for call. n8n is calling agent 3 times per day and has LLM to decide call the agent, by crypto market event.
 
 <p align="center">
   <img src="assets/trading_agent.png" alt="Trading Agent Architecture">
@@ -35,6 +36,10 @@ Before each trading session, the agent reads the trading notes using the Binance
 
 After each session, the agent updates trading notes using the Binance MCP tool.
 
+<p align="center">
+  <img src="assets/claude.png" alt="Claude mobile usage example">
+</p>
+
 All tools that the agent has are available as MCP in Claude web & Claude mobile. Users can always ask Claude about trading notes or request to close or open positions. Everything the trading agent has is available for Claude web & mobile.
 
 ### Performance
@@ -60,6 +65,7 @@ BUY-AND-HOLD (33% BTC, 33% ETH, 33% USDT):
 
 OUTPERFORMANCE: -0.86%
 ```
+Alternative performance evaluation approach is collecting agent actions and py_eval scripts that agent composing for subsequent llm analysis about agent's style and potential mistakes.
 
 ## Installation
 ### Requirements
