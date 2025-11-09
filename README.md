@@ -1,376 +1,212 @@
 # Crypto Trading Agent
 
-### Overview
-AI-powered cryptocurrency trading agent built with Claude SDK and the Model Context Protocol (MCP), featuring systematic CSV-based data analysis and conservative risk management for live market trading.
-Tradin Agent deployed in docker and waiting for call. n8n is calling agent 3 times per day and has LLM to decide call the agent, by crypto market event.
+AI-powered cryptocurrency trading system built with Claude SDK and Model Context Protocol (MCP), featuring forced quantitative analysis through CSV data flows, specialized parallel subagents, and event-driven execution via n8n orchestration.
 
 <p align="center">
   <img src="assets/trading_agent.png" alt="Trading Agent Architecture">
 </p>
 
-### Deep Analysis of Each MCP Tool Response
-All tools save results to CSV files in the shared `data/` folder (mounted across MCP servers and agent).
+## Key Innovations
 
-The agent does not receive text from requested MCP tools. It has only a single option - read CSV files and execute pandas/numpy code to analyze patterns, calculate metrics, and identify signals.
+### 1. CSV-First MCP Architecture
 
-### Subagents
-The primary benefits of using sub-agents are token economy and strict focus on the corresponding task.
+Unlike traditional LLM tools that return text summaries, **all MCP servers return CSV file paths** instead of data. The agent must execute pandas/numpy code to analyze every response.
 
-### Activation by n8n Events
-This agent is deployed as a REST API. The following parameters are accepted:
-* System prompt
-* User prompts
-* Event notes
+**Why this matters:**
+- **Eliminates superficial analysis** - No text summaries to rely on
+- **Forces systematic quantitative analysis** - Every decision is data-driven
+- **Enables cross-tool correlation** - Combine RSI CSV + orderbook CSV + news sentiment CSV
+- **Provides reproducible analysis** - All data persists as CSV files
 
-Agent activation is initialized by an n8n process, which includes:
-* Cron: 8, 14, 20 UTC
-* Binance news notifications
-* cryptocurrencyalerting.com alerts
-
-<p align="center">
-  <img src="assets/n8n.png" alt="n8n Workflow">
-</p>
-
-### Trading Notes & UI
-Before each trading session, the agent reads the trading notes using the Binance MCP tool.
-
-After each session, the agent updates trading notes using the Binance MCP tool.
-
-<p align="center">
-  <img src="assets/claude.png" alt="Claude mobile usage example">
-</p>
-
-All tools that the agent has are available as MCP in Claude web & Claude mobile. Users can always ask Claude about trading notes or request to close or open positions. Everything the trading agent has is available for Claude web & mobile.
-
-### Performance
-<p align="center">
-  <img src="assets/performance.png" alt="Performance metrics">
-</p>
-
-According to the first month test on a real portfolio, it underperformed the 33% BTC - 33% ETH - 33% USDT weighted portfolio by 0.86%.
+**Example workflow:**
+```python
+# MCP returns: "data/mcp-polygon/rsi_BTCUSD_abc123.csv"
+# Agent must then:
+df = pd.read_csv('data/mcp-polygon/rsi_BTCUSD_abc123.csv')
+rsi_value = df['value'].iloc[-1]
+# Combine with orderbook analysis for trading decision
 ```
-Total Capital Invested: $2,910.75
+
+### 2. Specialized Subagent System
+
+Eight domain-expert subagents with restricted tool access and focused prompts enable parallel analysis and token-efficient processing.
+
+| Subagent | Focus Area | Can Trade? | Key Tools |
+|----------|------------|------------|-----------|
+| **btc-researcher** | Bitcoin deep analysis | ❌ | Polygon, Perplexity, Binance data |
+| **eth-researcher** | Ethereum ecosystem | ❌ | Polygon, Perplexity, DeFi metrics |
+| **altcoin-researcher** | Opportunity discovery | ❌ | Gainers/losers, news, sentiment |
+| **market-intelligence** | Macro & sentiment | ❌ | **Only** Perplexity + news |
+| **technical-analyst** | Pure chart analysis | ❌ | Indicators, orderbook, klines |
+| **risk-manager** | Portfolio risk | ❌ | **Only** account/risk tools |
+| **data-analyst** | Statistical analysis | ❌ | **Only** Python + Read |
+| **futures-analyst** | Leverage strategies | ❌ | Futures data, liquidation calc |
+
+**Benefits:**
+- **Parallel execution** - Analyze BTC, ETH, and altcoins simultaneously
+- **Token efficiency** - Specialized contexts vs bloated main context
+- **Enforced focus** - Read-only analysts can't accidentally trade
+
+### 3. n8n Event-Driven Architecture
+
+The agent runs as a REST API, triggered by n8n workflows with dynamic prompts and event context.
+
+**POST /action** accepts:
+```json
+{
+  "system_prompt": "Override default strategy (e.g., conservative mode)",
+  "user_prompt": "BTC dropped 5% - assess buying opportunity",
+  "event_data": {
+    "type": "price_alert",
+    "symbol": "BTC/USDT",
+    "change": "-5.2%"
+  }
+}
+```
+
+**Orchestration triggers:**
+- **Scheduled**: 8:00, 14:00, 20:00 UTC daily analysis
+- **Event-driven**: Binance news, price alerts from cryptocurrencyalerting.com
+- **Dynamic strategies**: Adjust approach without redeployment
+
+<p align="center">
+  <img src="assets/n8n.png" alt="n8n Workflow Orchestration">
+</p>
+
+## Performance
+
+<p align="center">
+  <img src="assets/performance.png" alt="Performance Metrics">
+</p>
+
+First month results on real portfolio (vs 33% BTC / 33% ETH / 33% USDT benchmark):
+```
+Total Capital: $2,910.75
 
 ACTUAL TRADING:
-  Final Equity:  $2,828.12
-  Return:        -2.84%
-  Profit/Loss:   $-82.62
-  Max Drawdown:  -7.53%
+  Return:       -2.84% ($-82.62)
+  Max Drawdown: -7.53%
 
-BUY-AND-HOLD (33% BTC, 33% ETH, 33% USDT):
-  Final Equity:  $2,853.08
-  Return:        -1.98%
-  Profit/Loss:   $-57.67
-  Max Drawdown:  -8.47%
+BENCHMARK:
+  Return:       -1.98% ($-57.67)
+  Max Drawdown: -8.47%
 
-OUTPERFORMANCE: -0.86%
+Relative Performance: -0.86%
 ```
-Alternative performance evaluation approach is collecting agent actions and py_eval scripts that agent composing for subsequent llm analysis about agent's style and potential mistakes.
 
-## Installation
-### Requirements
-* mcp-binance
-* mcp-polygon
-* mcp-perplexity
+## Quick Start
+
+### Prerequisites
+- Docker & Docker Compose
+- Access to mcp-binance, mcp-polygon, mcp-perplexity servers
+- All services must be on `mcp-shared` Docker network
+
 ### Installation
-```
+```bash
 git clone https://github.com/format37/trading_agent.git
 cd trading_agent
-sudo mkdir -p /home/ubuntu/mcp/data
-sudo mkdir -p /home/ubuntu/mcp/data/trading_agent/logs
-sudo chown -R $USER:$USER /home/ubuntu/mcp/data
 ./compose_prod.sh
 ```
-### Health check
+
+### Health Check
+```
 http://trading-agent:8012/health
-
-## Claude Authentication
-
-After deploying the container, you can authenticate Claude CLI to use your Claude subscription instead of API keys.
-
-### Authentication Workflow
-
-1. **Connect to the running container**:
-```bash
-docker exec -it trading-agent bash
 ```
 
-2. **Authenticate Claude CLI**:
-```bash
-claude
-```
-If you restart the container, you would need to repeat this step.
+For Claude CLI authentication and detailed setup, see [docs/authentication.md](docs/authentication.md).
 
-### Troubleshooting
+## Usage
 
-**Error: `EACCES: permission denied, mkdir '/home/appuser/.claude/debug'`**
+### REST API
 
-This occurs when the host directory doesn't have proper permissions. Fix it:
+Send trading requests to the agent:
 
 ```bash
-# On your VPS host (as ubuntu user)
-sudo mkdir -p /home/ubuntu/.claude
-sudo chown -R 1000:1000 /home/ubuntu/.claude
-sudo chmod -R 755 /home/ubuntu/.claude
-
-# Rebuild and restart container
-docker-compose -f docker-compose.prod.yml down
-docker-compose -f docker-compose.prod.yml up -d --build
-
-# Try authentication again
-docker exec -it trading-agent bash
-claude login
-exit
+curl -X POST http://trading-agent:8012/action \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_prompt": "Analyze market conditions and execute conservative trades",
+    "system_prompt": "Focus on BTC and ETH only"
+  }'
 ```
 
-**Why this happens**: The Docker volume mount uses the host directory's permissions. The container's `appuser` has UID 1000, which must match the host directory ownership.
+### n8n Integration
 
-## Request
-Step-by-Step Setup in n8n
+Configure automated workflows with dynamic prompts based on market events. See [docs/n8n-integration.md](docs/n8n-integration.md) for webhook setup and examples.
 
-1. Create HTTP Request Node
+### Mobile Access
 
-In your n8n workflow:
-1. Add HTTP Request node
-2. Configure the request:
-  - Method: POST
-  - URL: http://trading-agent:8012/action
+<p align="center">
+  <img src="assets/claude.png" alt="Claude Mobile Trading Interface" width="300">
+</p>
 
----
-2. Configure Authentication
+All MCP tools are available through Claude web & mobile. Users can view trading notes, check positions, and execute trades directly through Claude's interface.
 
-Select Authentication Type:
-- Choose: Generic Credential Type → Header Auth
+## Architecture
 
-Create New Credential:
-1. Click "Create New Credential"
-2. Credential Type: Header Auth
-3. Credential Name: Trading Agent Token (or any name you prefer)
-4. Add header:
-  - Name: Authorization
-  - Value: Bearer abcde (or your actual token)
+### MCP Tool Categories
 
-## Available Tools
+**Market Data (Polygon)**
+- Real-time prices, historical OHLCV, order books
+- Technical indicators: RSI, MACD, EMA, SMA
+- Market news and sentiment analysis
 
-### Polygon MCP - Market Data & Research
+**Trading & Portfolio (Binance)**
+- Spot and futures trading execution
+- Account management and P&L tracking
+- Risk analysis and position monitoring
 
-**Market News & Reference Data**
-- `polygon_news` - Market news with ticker/date filtering
-- `polygon_ticker_details` - Detailed ticker information
-- `polygon_market_holidays` - Market holiday calendar
-- `polygon_market_status` - Real-time market status
+**Market Intelligence (Perplexity)**
+- Web research and macro analysis
+- Regulatory monitoring
+- Trend identification
 
-**Real-Time Price Data**
-- `polygon_crypto_last_trade` - Most recent trade execution
-- `polygon_crypto_snapshot_ticker` - Real-time price, volume, 24h statistics
-- `polygon_crypto_snapshot_book` - Current order book (bid/ask)
-- `polygon_crypto_snapshots` - Multi-ticker snapshots
-- `polygon_crypto_gainers_losers` - Top performing cryptocurrencies
+All tools return **CSV file paths** for mandatory quantitative analysis. See [docs/mcp-tools-reference.md](docs/mcp-tools-reference.md) for complete API documentation.
 
-**Historical OHLCV Data**
-- `polygon_crypto_aggregates` - Historical aggregate bars with customizable timeframes
-- `polygon_crypto_previous_close` - Previous day's closing data
-- `polygon_crypto_daily_open_close` - Daily OHLC for specific dates
-- `polygon_crypto_grouped_daily` - Grouped daily bars across multiple pairs
-- `polygon_crypto_trades` - Trade-by-trade historical data
+### Data Flow
 
-**Technical Indicators**
-- `polygon_crypto_rsi` - Relative Strength Index (overbought/oversold)
-- `polygon_crypto_ema` - Exponential Moving Average (trend following)
-- `polygon_crypto_macd` - Moving Average Convergence Divergence
-- `polygon_crypto_sma` - Simple Moving Average (trend identification)
-
-**Reference Data**
-- `polygon_crypto_tickers` - Available cryptocurrency tickers
-- `polygon_crypto_exchanges` - Exchange information
-- `polygon_crypto_conditions` - Trade condition codes
-
-### Binance MCP - Trading & Portfolio Management
-
-**Market Data (Read-Only)**
-- `binance_get_ticker` - 24hr price change statistics
-- `binance_get_orderbook` - Current bid/ask order book
-- `binance_get_recent_trades` - Recent market trades
-- `binance_get_price` - Latest price for symbol(s)
-- `binance_get_book_ticker` - Best bid/ask prices
-- `binance_get_avg_price` - Average price over time window
-
-**Account Management (Read-Only)**
-- `binance_get_account` - Portfolio balances with USDT valuations
-- `binance_get_open_orders` - Currently active orders
-- `binance_spot_trade_history` - Executed trade history with P&L data
-
-**Spot Trading**
-- `binance_spot_market_order` - Execute market buy/sell orders
-- `binance_spot_limit_order` - Place limit orders (GTC/IOC/FOK)
-- `binance_spot_oco_order` - One-Cancels-Other orders (take-profit + stop-loss)
-- `binance_cancel_order` - Cancel individual or all orders
-
-**Futures Trading**
-- `binance_set_futures_leverage` - Configure leverage for symbol
-- `binance_manage_futures_positions` - Open/close/modify futures positions
-- `binance_calculate_liquidation_risk` - Calculate liquidation prices and risk
-
-**Analysis & Risk Management**
-- `binance_calculate_spot_pnl` - Profit/loss analysis with fee tracking
-- `trading_notes` - Save and retrieve trading decisions/observations
-
-### Python Code Execution
-
-**Built-in Analysis Tool**
-- `mcp__ide__executeCode` - Execute Python code with pandas/numpy pre-loaded for CSV analysis
-
-## Configuration
-
-### MCP Servers
-
-This project utilizes the following Model Context Protocol (MCP) repositories:
-
-- **[mcp-binance](https://github.com/format37/mcp-binance)** - Provides comprehensive Binance exchange integration including spot trading, futures trading, account management, and portfolio analytics
-- **[mcp-polygon](https://github.com/format37/mcp-polygon)** - Delivers market data and technical analysis capabilities through Polygon.io APIs including real-time prices, historical data, and technical indicators
-- **[mcp-perplexity](https://github.com/format37/mcp-perplexity)** - Providing Perplexity AI-powered web search and research capabilities. All tools return JSON responses directly from the Perplexity API.
-
-### MCP Server Configuration
-
-#### Required MCP Servers
-
-The trading agent requires three MCP servers to function:
-
-1. **Polygon MCP** (`mcp-polygon`) - Market data and technical indicators
-2. **Binance MCP** (`mcp-binance-local`) - Trading execution and account management
-3. **Perplexity MCP** (`mcp-perplexity-local`) - Market intelligence and research
-
-#### Environment Variables
-
-Configure MCP server URLs in `.env.prod`:
-
-```bash
-# Polygon MCP - Market data
-POLYGON_URL=http://mcp-polygon:8006/polygon/
-
-# Binance MCP - Trading execution
-BINANCE_URL=http://mcp-binance-local:8010/binance/
-
-# Perplexity MCP - Market intelligence
-PERPLEXITY_URL=http://mcp-perplexity-local:8011/perplexity/
-
-# Optional: Enable strict MCP connectivity check at startup
-# If set to "true", agent exits immediately if any MCP server is unreachable
-# If set to "false" (default), agent shows warnings but continues
-STRICT_MCP_CHECK=false
+```
+n8n Event → Trading Agent → MCP Server → CSV File → Python Analysis → Trading Decision
+                ↑                            ↓
+                └────── Shared /data Volume ─┘
 ```
 
-#### MCP Connectivity Checks
-
-The trading agent includes two levels of MCP server validation:
-
-**1. Pre-flight Connectivity Check (Optional)**
-- Runs before agent initialization
-- Tests HTTP connectivity to each MCP server
-- Controlled by `STRICT_MCP_CHECK` environment variable
-- Default behavior: Shows warnings but continues (allows testing in development)
-- Production recommendation: Set `STRICT_MCP_CHECK=true` for fail-fast behavior
-
-**2. Runtime MCP Status Check (Mandatory)**
-- Monitors MCP server status during agent initialization
-- Automatically exits if any MCP server fails to connect
-- Provides detailed troubleshooting information
-- Cannot be disabled (required for agent functionality)
-
-#### Docker Network Requirements
-
-**Network Configuration:**
-```yaml
-# docker-compose.prod.yml
-networks:
-  mcp-shared:
-    external: true
-```
-
-**Requirements:**
-- All MCP servers must be on the `mcp-shared` Docker network
-- Trading agent container must also be on `mcp-shared` network
-- Service names (e.g., `mcp-binance-local`) must resolve within the network
-
-**Verify network connectivity:**
-```bash
-# Check if network exists
-docker network inspect mcp-shared
-
-# Check which containers are on the network
-docker network inspect mcp-shared | grep Name
-```
-
-## CSV Data Persistence
-
-All CSV files are stored in `data/mcp-{server_name}/` with unique identifiers:
-
+CSV files persist in `data/mcp-{server}/` with unique identifiers:
 ```
 data/
 ├── mcp-binance/
 │   ├── account_fc2d93fb.csv
-│   ├── orderbook_BTCUSDT_20_2ba055fa.csv
-│   ├── market_order_BTCUSDT_sell_e0ece103.csv
-│   └── trading_notes/
-│       └── strategy.md
+│   └── orderbook_BTCUSDT_20_2ba055fa.csv
 └── mcp-polygon/
-    ├── crypto_rsi_X_BTCUSD_w14_hour_a62e072d.csv
-    ├── crypto_macd_X_BTCUSD_12-26-9_hour_978c58a5.csv
-    └── market_status_9f3c1cfe.csv
+    └── crypto_rsi_X_BTCUSD_w14_hour_a62e072d.csv
 ```
 
-## Subagent Architecture
+### Configuration
 
-### How Subagents Work
-
-Subagents are specialized AIs orchestrated by the main trading agent. Each subagent has:
-
-1. **Specialized System Prompt**: Domain-specific expertise and instructions
-2. **Restricted Tools**: Only the tools necessary for their role
-3. **Separate Context**: Won't pollute main agent's context with detailed analysis
-4. **Parallel Execution**: Multiple subagents can run simultaneously
-
-### Subagent Prompts
-
-All subagent prompts are stored in `prompts/` directory:
-
-```
-prompts/
-├── btc_researcher.md       # Bitcoin analysis specialist
-├── eth_researcher.md       # Ethereum ecosystem specialist
-├── altcoin_researcher.md   # Altcoin opportunity discovery
-├── market_intelligence.md  # Web research & macro analysis
-├── technical_analyst.md    # Pure chart analysis expert
-├── risk_manager.md         # Portfolio risk assessment
-├── data_analyst.md         # Statistical analysis specialist
-└── futures_analyst.md      # Futures trading & leverage specialist
+Essential environment variables in `.env.prod`:
+```bash
+POLYGON_URL=http://mcp-polygon:8006/polygon/
+BINANCE_URL=http://mcp-binance-local:8010/binance/
+PERPLEXITY_URL=http://mcp-perplexity-local:8011/perplexity/
+STRICT_MCP_CHECK=true  # Fail-fast if MCP servers unreachable
 ```
 
-### Tool Restrictions by Role
+For advanced configuration and deployment options, see [docs/deployment.md](docs/deployment.md).
 
-**Read-Only Subagents** (Cannot execute trades):
-- market-intelligence: Only Perplexity tools + polygon_news
-- risk-manager: Only account/risk analysis tools
-- technical-analyst: Only price data + indicators
-- data-analyst: Only Python execution + Read
+## Documentation
 
-**Research Subagents** (Can fetch data but not trade):
-- btc-researcher: Polygon + Perplexity + Binance market data
-- eth-researcher: Polygon + Perplexity + Binance market data
-- altcoin-researcher: Polygon + Perplexity + Binance market data
+- [Authentication Guide](docs/authentication.md) - Claude CLI setup and troubleshooting
+- [MCP Tools Reference](docs/mcp-tools-reference.md) - Complete tool documentation
+- [n8n Integration](docs/n8n-integration.md) - Webhook configuration and workflows
+- [Deployment Guide](docs/deployment.md) - Docker, networking, and production setup
+- [Subagent Details](docs/subagents.md) - Prompts and tool restrictions
 
-**Trading Specialist** (Can analyze and recommend but main agent executes):
-- futures-analyst: Binance futures data + liquidation calculator + leverage tools
-  - Analyzes funding rates and basis spreads
-  - Calculates safe leverage levels (max 2-5x recommended)
-  - Validates liquidation risk before futures positions
-  - Can recommend futures positions but main agent executes
+## Related Projects
 
-**Main Agent** (Full authority):
-- All MCP tools including spot and futures trading execution
-- Can invoke any subagent
-- Makes final trading decisions
-- Executes both spot and futures orders
+- [mcp-binance](https://github.com/format37/mcp-binance) - Binance exchange MCP integration
+- [mcp-polygon](https://github.com/format37/mcp-polygon) - Polygon.io market data MCP
+- [mcp-perplexity](https://github.com/format37/mcp-perplexity) - Perplexity AI research MCP
 
 ## License
 
