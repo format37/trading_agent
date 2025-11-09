@@ -138,7 +138,7 @@ Configure automated workflows with dynamic prompts based on market events. See [
 ### Mobile Access
 
 <p align="center">
-  <img src="assets/claude.png" alt="Claude Mobile Trading Interface" width="300">
+  <img src="assets/claude.png" alt="Claude Mobile Trading Interface">
 </p>
 
 All MCP tools are available through Claude web & mobile. Users can view trading notes, check positions, and execute trades directly through Claude's interface.
