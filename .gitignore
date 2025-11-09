@@ -6,4 +6,3 @@ __pycache__/
 reports/*.png
 reports/*.csv
 reports/*.json
-tests/
