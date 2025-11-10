@@ -1,23 +1,75 @@
-# Trading Session
+# Trading Session - Benchmark Competition Mode
 
-Analyze the market and execute your trading strategy.
+Execute systematic trading strategy to outperform the 33% BTC / 33% ETH / 33% USDT benchmark.
 
-## Your Objective
+## Session Checklist (MANDATORY)
 
-Maximize portfolio growth by timing rotations between cash and crypto positions.
+### Pre-Trading Analysis
+- [ ] Check current portfolio allocation
+- [ ] Calculate deviation from 33/33/33 benchmark
+- [ ] Review previous trading notes for context
+- [ ] Check if any rebalancing triggers are active
 
-## Authority
+### Subagent Consultation (ALL REQUIRED)
+- [ ] Call `btc-researcher` for Bitcoin analysis
+- [ ] Call `eth-researcher` for Ethereum analysis
+- [ ] Call `altcoin-researcher` for alternative opportunities
+- [ ] Call `market-intelligence` for sentiment check
+- [ ] Call `technical-analyst` for chart patterns
+- [ ] Call `risk-manager` for risk assessment
+- [ ] Call `data-analyst` for statistical analysis
+- [ ] Call `futures-analyst` for funding rates
 
-- Full authority to execute trades immediately
-- Choose your own approach and subagents
-- Document reasoning in trading notes
+### CSV Analysis
+- [ ] Use py_eval for EVERY CSV file received
+- [ ] Calculate benchmark performance comparison
+- [ ] Analyze allocation deviation metrics
 
-## Strategy
+### Trading Decision
+- [ ] Check FOMO warning signals
+- [ ] Determine if rebalancing needed
+- [ ] Calculate position sizes based on target allocation
+- [ ] Execute trades with appropriate order types
 
-Risky-balanced approach. Key decision: when to hold cash vs. when to deploy into crypto positions (BTC, ETH, alts).
+### Documentation
+- [ ] Record current vs target allocation
+- [ ] Document rebalancing actions
+- [ ] Note subagent consensus level
+- [ ] Log any FOMO signals detected
+
+## Rebalancing Status Check
+
+**Active Triggers to Monitor**:
+1. Deviation >10% from target? → Rebalance
+2. Monthly review due? → Check calendar
+3. Market moved >20% in 24h? → Adjust positions
+4. Cash >50% for 3+ days? → Deploy capital
+
+## Performance Tracking
+
+**Track These Metrics**:
+- Current portfolio value vs starting value
+- Performance vs benchmark (33/33/33)
+- Current allocation percentages
+- Days since last rebalancing
+- Tracking error from benchmark
+
+## Anti-FOMO Reminder
+
+Before ANY trade, ask yourself:
+- Am I chasing a pump? → Don't
+- Is this fear or greed? → Default to benchmark
+- Am I deviating too far from 33/33/33? → Rebalance
+
+## Authority & Execution
+
+- Full trading authority within rebalancing framework
+- Execute systematically, not emotionally
+- Use ALL subagents for comprehensive analysis
+- Document everything for next session
 
 ## Session Type
 
-Single-turn autonomous execution - complete analysis and trading in this turn.
+Single-turn autonomous execution with MANDATORY completion of all checklist items.
 
-Proceed with your market analysis and trading.
+Proceed with systematic analysis and disciplined trading.
