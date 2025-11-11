@@ -37,6 +37,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Configuration
+AGENT_TIMEOUT_SECONDS = int(os.getenv("AGENT_TIMEOUT_SECONDS", "600"))
+
 # Import the agent's main function
 # We'll import dynamically to avoid import errors if dependencies are missing
 try:
@@ -271,10 +274,23 @@ async def trigger_action(action_request: ActionRequest):
             if action_request.user_prompt:
                 agent_kwargs['custom_user_prompt'] = action_request.user_prompt
 
+            # Log pre-execution context
+            logger.info("=" * 80)
+            logger.info("Starting agent execution")
+            logger.info("=" * 80)
+            logger.info(f"Timeout limit: {AGENT_TIMEOUT_SECONDS} seconds ({AGENT_TIMEOUT_SECONDS/60:.1f} minutes)")
+            logger.info(f"Custom system prompt: {'Yes' if action_request.system_prompt else 'No'}")
+            logger.info(f"Custom user prompt: {'Yes' if action_request.user_prompt else 'No'}")
+            logger.info(f"Event data provided: {'Yes' if event_data else 'No'}")
+            if event_data:
+                event_type = event_data.get('type', 'unknown') if isinstance(event_data, dict) else 'text'
+                logger.info(f"Event type: {event_type}")
+            logger.info("=" * 80)
+
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 future = executor.submit(asyncio.run, agent_main(**agent_kwargs))
                 # Wait for completion and get result (with timeout)
-                agent_result = future.result(timeout=600)  # 10 minute timeout
+                agent_result = future.result(timeout=AGENT_TIMEOUT_SECONDS)
 
             end_time = datetime.now(timezone.utc)
             duration_seconds = (end_time - start_time).total_seconds()
@@ -316,10 +332,65 @@ async def trigger_action(action_request: ActionRequest):
             return response_data
 
         except concurrent.futures.TimeoutError:
-            logger.error("Agent execution timed out")
+            timeout_duration = (datetime.now(timezone.utc) - start_time).total_seconds()
+
+            # Log comprehensive timeout diagnostics
+            logger.error("=" * 80)
+            logger.error("AGENT EXECUTION TIMED OUT")
+            logger.error("=" * 80)
+            logger.error(f"Timeout limit: {AGENT_TIMEOUT_SECONDS} seconds ({AGENT_TIMEOUT_SECONDS/60:.1f} minutes)")
+            logger.error(f"Actual duration: {timeout_duration:.2f} seconds ({timeout_duration/60:.2f} minutes)")
+            logger.error(f"Exceeded by: {timeout_duration - AGENT_TIMEOUT_SECONDS:.2f} seconds")
+            logger.error("")
+            logger.error("Execution context:")
+            logger.error(f"  Event file: {event_file_path or 'None'}")
+            logger.error(f"  Event data: {json.dumps(event_data, indent=4) if event_data else 'None'}")
+            logger.error(f"  Custom system prompt: {'Yes' if action_request.system_prompt else 'No'}")
+            logger.error(f"  Custom user prompt: {'Yes' if action_request.user_prompt else 'No'}")
+            logger.error(f"  Agent arguments: {sys.argv}")
+            logger.error("")
+
+            # Try to read any partial session data that was written
+            try:
+                log_dir = Path("data/trading_agent")
+                if log_dir.exists():
+                    # Look for recent files (last 5)
+                    recent_files = sorted(
+                        log_dir.glob("*"),
+                        key=lambda p: p.stat().st_mtime,
+                        reverse=True
+                    )[:5]
+
+                    if recent_files:
+                        logger.error("Recent session files (may contain partial data):")
+                        for f in recent_files:
+                            file_age = datetime.now(timezone.utc).timestamp() - f.stat().st_mtime
+                            logger.error(f"  - {f.name} ({f.stat().st_size} bytes, {file_age:.0f}s ago)")
+                    else:
+                        logger.error("No session files found in data/trading_agent")
+                else:
+                    logger.error("Session data directory does not exist")
+            except Exception as e:
+                logger.error(f"Could not read session files: {e}")
+
+            logger.error("")
+            logger.error("Possible causes:")
+            logger.error("  1. Agent is stuck in an infinite loop or long-running operation")
+            logger.error("  2. MCP server (Polygon, Binance, Perplexity) is unresponsive")
+            logger.error("  3. Network issues preventing API calls from completing")
+            logger.error("  4. Complex analysis requiring more time than allocated")
+            logger.error("  5. Subagent execution taking longer than expected")
+            logger.error("")
+            logger.error("Recommendations:")
+            logger.error(f"  - Check MCP server health logs")
+            logger.error(f"  - Review recent session files listed above for partial progress")
+            logger.error(f"  - Consider increasing AGENT_TIMEOUT_SECONDS (current: {AGENT_TIMEOUT_SECONDS})")
+            logger.error(f"  - Check network connectivity to external APIs")
+            logger.error("=" * 80)
+
             raise HTTPException(
                 status_code=504,
-                detail="Agent execution timed out (10 minute limit)"
+                detail=f"Agent execution timed out after {timeout_duration:.1f}s (limit: {AGENT_TIMEOUT_SECONDS}s)"
             )
         except SystemExit as e:
             # Agent may exit with sys.exit() (this shouldn't happen with new return-based approach)
