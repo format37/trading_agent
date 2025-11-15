@@ -267,7 +267,7 @@ def load_subagent_prompts():
         "technical-analyst": "technical_analyst.md",
         "risk-manager": "risk_manager.md",
         "data-analyst": "data_analyst.md",
-        "futures-analyst": "futures_analyst.md"
+        # "futures-analyst": "futures_analyst.md"
     }
 
     prompts = {}
