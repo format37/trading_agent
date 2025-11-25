@@ -902,8 +902,12 @@ async def main(custom_system_prompt: Optional[str] = None,
                             agent_text_responses.append(block.text)
                         elif isinstance(block, ToolUseBlock):
                             display_tool_use(block)
+                            # Record tool call for action tracking
+                            activity_tracker.record_tool_call(block.name, block.id, getattr(block, 'input', None))
                         elif isinstance(block, ToolResultBlock):
                             display_tool_result(block)
+                            # Record tool result for action tracking
+                            activity_tracker.record_tool_result(block.tool_use_id, block.content, block.is_error)
                             # Capture binance_trading_notes results
                             if hasattr(block, 'tool_use_id'):
                                 # Find the corresponding tool call
@@ -979,8 +983,12 @@ async def main(custom_system_prompt: Optional[str] = None,
                                         agent_text_responses.append(block.text)
                                     elif isinstance(block, ToolUseBlock):
                                         display_tool_use(block)
+                                        # Record tool call for action tracking
+                                        activity_tracker.record_tool_call(block.name, block.id, getattr(block, 'input', None))
                                     elif isinstance(block, ToolResultBlock):
                                         display_tool_result(block)
+                                        # Record tool result for action tracking
+                                        activity_tracker.record_tool_result(block.tool_use_id, block.content, block.is_error)
                                         # Capture binance_trading_notes results
                                         if hasattr(block, 'tool_use_id'):
                                             # Find the corresponding tool call

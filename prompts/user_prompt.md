@@ -10,15 +10,15 @@ Execute systematic trading strategy to outperform the 33% BTC / 33% ETH / 33% US
 - [ ] Review previous trading notes for context
 - [ ] Check if any rebalancing triggers are active
 
-### Subagent Consultation (ALL REQUIRED)
-- [ ] Call `btc-researcher` for Bitcoin analysis
-- [ ] Call `eth-researcher` for Ethereum analysis
-- [ ] Call `altcoin-researcher` for alternative opportunities
-- [ ] Call `market-intelligence` for sentiment check
-- [ ] Call `technical-analyst` for chart patterns
-- [ ] Call `risk-manager` for risk assessment
-- [ ] Call `data-analyst` for statistical analysis
-- [ ] Call `futures-analyst` for funding rates
+### Subagent Consultation
+- [x] Call `risk-manager` for risk assessment (REQUIRED)
+- [ ] Call `btc-researcher` for Bitcoin analysis (as needed)
+- [ ] Call `eth-researcher` for Ethereum analysis (as needed)
+- [ ] Call `altcoin-researcher` for alternative opportunities (as needed)
+- [ ] Call `market-intelligence` for sentiment check (as needed)
+- [ ] Call `technical-analyst` for chart patterns (as needed)
+- [ ] Call `data-analyst` for statistical analysis (as needed)
+- [ ] Call `futures-analyst` for funding rates (as needed)
 
 ### CSV Analysis
 - [ ] Use py_eval for EVERY CSV file received
@@ -65,7 +65,7 @@ Before ANY trade, ask yourself:
 
 - Full trading authority within rebalancing framework
 - Execute systematically, not emotionally
-- Use ALL subagents for comprehensive analysis
+- Use risk-manager (required) and relevant subagents based on context
 - Document everything for next session
 
 ## Session Type
