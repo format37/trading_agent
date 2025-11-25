@@ -35,6 +35,7 @@ COPY telemetry.py .
 COPY activity_tracker.py .
 COPY session_reporter.py .
 COPY logger.py .
+COPY config.json .
 
 # Copy prompts directory
 COPY prompts/ ./prompts/

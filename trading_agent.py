@@ -106,6 +106,16 @@ if not TELEMETRY_AVAILABLE:
 # Load environment variables from .env file
 load_dotenv()
 
+def load_config() -> dict:
+    """Load model configuration from config.json."""
+    config_path = os.path.join(os.path.dirname(__file__), "config.json")
+    try:
+        with open(config_path, "r") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        print(f"Warning: config.json not found, using defaults")
+        return {"model": {"name": "sonnet", "effort": ""}}
+
 # Initialize activity tracker (no-op when telemetry disabled)
 activity_tracker = AgentActivityTracker()
 
@@ -267,7 +277,7 @@ def load_subagent_prompts():
         "technical-analyst": "technical_analyst.md",
         "risk-manager": "risk_manager.md",
         "data-analyst": "data_analyst.md",
-        # "futures-analyst": "futures_analyst.md"
+        "futures-analyst": "futures_analyst.md"
     }
 
     prompts = {}
@@ -281,10 +291,13 @@ def load_subagent_prompts():
 
     return prompts
 
-def create_subagent_definitions():
+def create_subagent_definitions(config: dict):
     """Create AgentDefinition objects for all subagents."""
     # Load prompts
     prompts = load_subagent_prompts()
+
+    # Get model name from config
+    model_name = config.get("model", {}).get("name", "sonnet")
 
     # Define agents with their configurations
     agents = {}
@@ -316,7 +329,7 @@ def create_subagent_definitions():
                 "mcp__ide__executeCode",
                 "Read"
             ],
-            model="sonnet"
+            model=model_name
         )
 
     # ETH Researcher - Parallel asset analysis
@@ -346,7 +359,7 @@ def create_subagent_definitions():
                 "mcp__ide__executeCode",
                 "Read"
             ],
-            model="sonnet"
+            model=model_name
         )
 
     # Altcoin Researcher - Opportunity discovery
@@ -376,7 +389,7 @@ def create_subagent_definitions():
                 "mcp__ide__executeCode",
                 "Read"
             ],
-            model="sonnet"
+            model=model_name
         )
 
     # Market Intelligence - Web research specialist
@@ -393,7 +406,7 @@ def create_subagent_definitions():
                 "mcp__polygon__polygon_news",
                 "Read"
             ],
-            model="sonnet"
+            model=model_name
         )
 
     # Technical Analyst - Pure chart analysis
@@ -418,7 +431,7 @@ def create_subagent_definitions():
                 "mcp__ide__executeCode",
                 "Read"
             ],
-            model="sonnet"
+            model=model_name
         )
 
     # Risk Manager - Portfolio risk assessment
@@ -443,7 +456,7 @@ def create_subagent_definitions():
                 "mcp__ide__executeCode",
                 "Read"
             ],
-            model="sonnet"
+            model=model_name
         )
 
     # Data Analyst - Python/pandas specialist
@@ -460,7 +473,7 @@ def create_subagent_definitions():
                 "mcp__ide__executeCode",
                 "Read"
             ],
-            model="sonnet"
+            model=model_name
         )
 
     # Futures Analyst - Leverage and futures trading specialist
@@ -490,7 +503,7 @@ def create_subagent_definitions():
                 "mcp__ide__executeCode",
                 "Read"
             ],
-            model="sonnet"
+            model=model_name
         )
 
     return agents
@@ -709,11 +722,20 @@ async def main(custom_system_prompt: Optional[str] = None,
     elif use_test_prompts:
         print("🧪 Using TEST user prompt (USE_TEST_PROMPTS=true)\n")
 
+    # Load model configuration
+    config = load_config()
+    model_config = config.get("model", {})
+    print(f"📋 Model configuration: {model_config.get('name', 'sonnet')}")
+    if model_config.get("effort"):
+        print(f"   Effort level: {model_config.get('effort')}")
+        # TODO: Pass effort parameter to SDK when supported
+    print()
+
     # Create subagent definitions
     print("=" * 80)
     print("Initializing Subagent Architecture...")
     print("=" * 80)
-    subagents = create_subagent_definitions()
+    subagents = create_subagent_definitions(config)
     print(f"✓ Loaded {len(subagents)} specialized subagents:")
     for agent_name in subagents.keys():
         print(f"  - {agent_name}")
