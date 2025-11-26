@@ -236,3 +236,16 @@ class AgentActivityTracker:
                     })
 
         return trading_actions
+
+    def get_agent_execution_counts(self) -> Dict[str, int]:
+        """
+        Get execution counts for each subagent.
+        Returns dict mapping agent name to execution count.
+        Only includes agents that were actually executed (no zero counts).
+        """
+        counts = defaultdict(int)
+        for turn in self.turns:
+            for execution in turn.subagent_executions:
+                counts[execution.subagent_type] += 1
+
+        return dict(counts)

@@ -312,6 +312,7 @@ async def trigger_action(action_request: ActionRequest):
             if agent_result and isinstance(agent_result, dict):
                 response_data["trading_notes"] = agent_result.get("trading_notes", "")
                 response_data["actions"] = agent_result.get("actions", [])
+                response_data["agents"] = agent_result.get("agents", {})
 
                 # Include session report path if available
                 if agent_result.get("session_report_path"):

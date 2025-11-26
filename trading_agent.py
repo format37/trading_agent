@@ -1038,6 +1038,9 @@ async def main(custom_system_prompt: Optional[str] = None,
     # Collect trading actions from activity tracker using helper method
     trading_actions = activity_tracker.get_trading_actions() if hasattr(activity_tracker, 'get_trading_actions') else []
 
+    # Collect agent execution counts
+    agent_counts = activity_tracker.get_agent_execution_counts() if hasattr(activity_tracker, 'get_agent_execution_counts') else {}
+
     # Compile trading notes from agent responses and binance_trading_notes tool
     trading_notes_combined = ""
     if agent_text_responses:
@@ -1066,6 +1069,7 @@ async def main(custom_system_prompt: Optional[str] = None,
         "exit_code": exit_code,
         "trading_notes": trading_notes_combined,
         "actions": trading_actions,
+        "agents": agent_counts,
         "session_report_path": session_report_path
     }
 
