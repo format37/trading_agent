@@ -27,23 +27,37 @@ rsi_value = df['value'].iloc[-1]
 # Combine with orderbook analysis for trading decision
 ```
 
-### 2. Specialized Subagent System
+### 2. Specialized Subagent System with 3-Phase Workflow
 
-Eight domain-expert subagents with restricted tool access and focused prompts enable parallel analysis and token-efficient processing.
+Nine domain-expert subagents with restricted tool access orchestrated in a structured 3-phase workflow for systematic analysis.
 
-| Subagent | Focus Area | Can Trade? | Key Tools |
-|----------|------------|------------|-----------|
-| **btc-researcher** | Bitcoin deep analysis | ❌ | Polygon, Perplexity, Binance data |
-| **eth-researcher** | Ethereum ecosystem | ❌ | Polygon, Perplexity, DeFi metrics |
-| **altcoin-researcher** | Opportunity discovery | ❌ | Gainers/losers, news, sentiment |
-| **market-intelligence** | Macro & sentiment | ❌ | **Only** Perplexity + news |
-| **technical-analyst** | Pure chart analysis | ❌ | Indicators, orderbook, klines |
-| **risk-manager** | Portfolio risk | ❌ | **Only** account/risk tools |
-| **data-analyst** | Statistical analysis | ❌ | **Only** Python + Read |
-| **futures-analyst** | Leverage strategies | ❌ | Futures data, liquidation calc |
+**3-Phase Sequential Workflow:**
+```
+Phase 1: market-intelligence (FIRST - context gathering)
+         ↓
+Phase 2: risk-manager + other subagents (PARALLEL)
+         ↓
+Phase 3: critic (LAST - challenges assumptions)
+         ↓
+Phase 4: Primary agent synthesis and decision
+```
+
+| Subagent | Phase | Focus Area | Can Trade? | Key Tools |
+|----------|-------|------------|------------|-----------|
+| **market-intelligence** | 1 (FIRST) | Context, news, FOMO/FUD | ❌ | Perplexity, news, account, notes |
+| **btc-researcher** | 2 | Bitcoin deep analysis | ❌ | Polygon, Perplexity, Binance data |
+| **eth-researcher** | 2 | Ethereum ecosystem | ❌ | Polygon, Perplexity, DeFi metrics |
+| **altcoin-researcher** | 2 | Opportunity discovery | ❌ | Gainers/losers, news, sentiment |
+| **technical-analyst** | 2 | Pure chart analysis | ❌ | Indicators, orderbook, klines |
+| **risk-manager** | 2 (REQ) | Portfolio risk | ❌ | **Only** account/risk tools |
+| **data-analyst** | 2 | Statistical analysis | ❌ | **Only** Python + Read |
+| **futures-analyst** | 2 | Leverage strategies | ❌ | Futures data, liquidation calc |
+| **critic** | 3 (LAST) | Devil's advocate | ❌ | Perplexity (fact-check), Python |
 
 **Benefits:**
-- **Parallel execution** - Analyze BTC, ETH, and altcoins simultaneously
+- **Structured workflow** - Context first, analysis second, critique last
+- **Parallel execution** - Phase 2 subagents run simultaneously
+- **Built-in skepticism** - Critic challenges all recommendations before trading
 - **Token efficiency** - Specialized contexts vs bloated main context
 - **Enforced focus** - Read-only analysts can't accidentally trade
 
