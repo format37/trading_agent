@@ -277,7 +277,8 @@ def load_subagent_prompts():
         "technical-analyst": "technical_analyst.md",
         "risk-manager": "risk_manager.md",
         "data-analyst": "data_analyst.md",
-        "futures-analyst": "futures_analyst.md"
+        "futures-analyst": "futures_analyst.md",
+        "critic": "critic.md"
     }
 
     prompts = {}
@@ -392,18 +393,28 @@ def create_subagent_definitions(config: dict):
             model=model_name
         )
 
-    # Market Intelligence - Web research specialist
+    # Market Intelligence - Phase 1: Runs FIRST, provides context for all other subagents
     if "market-intelligence" in prompts:
         agents["market-intelligence"] = AgentDefinition(
-            description="Market intelligence and research specialist. Use when you need comprehensive web research on macro trends, regulatory developments, institutional activity, or market sentiment that cannot be obtained from price data alone. Read-only analyst.",
+            description="Market intelligence analyst. MUST be called FIRST in every session. Gathers portfolio state, trading notes, and news to provide initial context for all other subagents. Also detects FOMO/FUD extremes.",
             prompt=prompts["market-intelligence"],
             tools=[
+                # Perplexity tools for sentiment research
                 "mcp__perplexity__perplexity_sonar",
                 "mcp__perplexity__perplexity_sonar_pro",
                 "mcp__perplexity__perplexity_sonar_reasoning",
                 "mcp__perplexity__perplexity_sonar_reasoning_pro",
                 "mcp__perplexity__perplexity_sonar_deep_research",
+                # Polygon news
                 "mcp__polygon__polygon_news",
+                # Phase 1 context gathering - portfolio and notes
+                "mcp__binance__binance_get_account",
+                "mcp__binance__binance_trading_notes",
+                "mcp__binance__binance_portfolio_performance",
+                "mcp__binance__binance_get_ticker",
+                "mcp__binance__binance_get_price",
+                "mcp__binance__binance_py_eval",
+                "mcp__ide__executeCode",
                 "Read"
             ],
             model=model_name
@@ -501,6 +512,24 @@ def create_subagent_definitions(config: dict):
                 "mcp__polygon__polygon_crypto_snapshot_ticker",
                 "mcp__polygon__polygon_crypto_aggregates",
                 "mcp__ide__executeCode",
+                "Read"
+            ],
+            model=model_name
+        )
+
+    # Critic - Phase 3: Runs LAST, reviews all other subagent recommendations
+    if "critic" in prompts:
+        agents["critic"] = AgentDefinition(
+            description="Devil's advocate and risk critic. MUST be called LAST after all other analysis. Reviews all subagent recommendations, identifies flaws, challenges assumptions, and highlights overlooked risks. Does NOT provide trading recommendations.",
+            prompt=prompts["critic"],
+            tools=[
+                # Perplexity for fact-checking claims
+                "mcp__perplexity__perplexity_sonar",
+                "mcp__perplexity__perplexity_sonar_pro",
+                "mcp__perplexity__perplexity_sonar_reasoning",
+                # Analysis tools
+                "mcp__ide__executeCode",
+                "mcp__binance__binance_py_eval",
                 "Read"
             ],
             model=model_name
