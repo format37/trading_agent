@@ -279,7 +279,8 @@ def load_subagent_prompts():
         "risk-manager": "risk_manager.md",
         "data-analyst": "data_analyst.md",
         "futures-analyst": "futures_analyst.md",
-        "critic": "critic.md"
+        "critic": "critic.md",
+        "reporter": "reporter.md"
     }
 
     prompts = {}
@@ -298,10 +299,12 @@ def create_subagent_definitions(config: dict):
     # Load prompts
     prompts = load_subagent_prompts()
 
-    # Inject current UTC timestamp into each subagent prompt
+    # Inject session start time and current UTC timestamp into each subagent prompt
+    # Session start time is used by reporter to query request logs
+    session_start_time = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
     current_utc_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     prompts = {
-        name: f"Current UTC Time: {current_utc_time}\n\n{prompt}"
+        name: f"Session Start Time: {session_start_time}\nCurrent UTC Time: {current_utc_time}\n\n{prompt}"
         for name, prompt in prompts.items()
     }
 
@@ -543,10 +546,10 @@ def create_subagent_definitions(config: dict):
             model=model_name
         )
 
-    # Critic - Phase 3: Runs LAST, reviews all other subagent recommendations
+    # Critic - Phase 3: Runs after Phase 2, reviews all other subagent recommendations
     if "critic" in prompts:
         agents["critic"] = AgentDefinition(
-            description="Devil's advocate and risk critic. MUST be called LAST after all other analysis. Reviews all subagent recommendations, identifies flaws, challenges assumptions, and highlights overlooked risks. Does NOT provide trading recommendations.",
+            description="Devil's advocate and risk critic. Runs in Phase 3 after all analysis subagents. Reviews all subagent recommendations, identifies flaws, challenges assumptions, and highlights overlooked risks. Does NOT provide trading recommendations.",
             prompt=prompts["critic"],
             tools=[
                 # Perplexity for fact-checking claims
@@ -556,6 +559,24 @@ def create_subagent_definitions(config: dict):
                 # Analysis tools
                 "mcp__ide__executeCode",
                 "mcp__binance__binance_py_eval",
+                "Read"
+            ],
+            model=model_name
+        )
+
+    # Reporter - Phase 5: Runs ABSOLUTE LAST, generates session tool usage report
+    if "reporter" in prompts:
+        agents["reporter"] = AgentDefinition(
+            description="Session reporter. Runs ABSOLUTE LAST (Phase 5) after all decisions including trading. Aggregates all MCP tool calls made during the session into a CSV summary report.",
+            prompt=prompts["reporter"],
+            tools=[
+                # Request log tools - one per MCP server
+                "mcp__binance__binance_get_request_log",
+                "mcp__polygon__polygon_get_request_log",
+                "mcp__perplexity__get_request_log",
+                # Analysis tools for CSV processing
+                "mcp__binance__binance_py_eval",
+                "mcp__ide__executeCode",
                 "Read"
             ],
             model=model_name

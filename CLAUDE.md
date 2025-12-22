@@ -47,10 +47,10 @@ curl -X POST http://localhost:8012/action \
 ### Core Files
 - `trading_agent.py` - Main orchestration using Claude SDK with ClaudeSDKClient
 - `api.py` - FastAPI REST server with token-based auth, exposes /health and /action endpoints
-- `prompts/` - 14 prompt files (system, user, test variants, and 10 subagent prompts)
+- `prompts/` - 15 prompt files (system, user, test variants, and 11 subagent prompts)
 
 ### Subagent System
-Ten specialized subagents run in a phased workflow with restricted tool access:
+Eleven specialized subagents run in a 5-phase workflow with restricted tool access:
 
 | Agent | Phase | Purpose | Trading? |
 |-------|-------|---------|----------|
@@ -63,9 +63,10 @@ Ten specialized subagents run in a phased workflow with restricted tool access:
 | risk-manager | 2 | Portfolio risk (account tools only) | No |
 | data-analyst | 2 | Statistical analysis (Python + Read only) | No |
 | futures-analyst | 2 | Leverage strategies | No |
-| critic | 3 (LAST) | Devil's advocate review | No |
+| critic | 3 | Devil's advocate review | No |
+| reporter | 5 (LAST) | Session tool usage report | No |
 
-Subagents are defined in `create_subagent_definitions()` (~line 295) with `AgentDefinition` objects specifying allowed tools.
+Subagents are defined in `create_subagent_definitions()` (~line 297) with `AgentDefinition` objects specifying allowed tools.
 
 ### MCP Servers
 Three external MCP servers required (configured via environment variables):
