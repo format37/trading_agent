@@ -47,23 +47,25 @@ curl -X POST http://localhost:8012/action \
 ### Core Files
 - `trading_agent.py` - Main orchestration using Claude SDK with ClaudeSDKClient
 - `api.py` - FastAPI REST server with token-based auth, exposes /health and /action endpoints
-- `prompts/` - 12 prompt files (system, user, test variants, and 8 subagent prompts)
+- `prompts/` - 14 prompt files (system, user, test variants, and 10 subagent prompts)
 
 ### Subagent System
-Eight specialized subagents run in parallel with restricted tool access:
+Ten specialized subagents run in a phased workflow with restricted tool access:
 
-| Agent | Purpose | Trading? |
-|-------|---------|----------|
-| btc-researcher | Bitcoin analysis | No |
-| eth-researcher | Ethereum ecosystem | No |
-| altcoin-researcher | Alternative opportunities | No |
-| market-intelligence | Macro & sentiment (Perplexity only) | No |
-| technical-analyst | Chart analysis | No |
-| risk-manager | Portfolio risk (account tools only) | No |
-| data-analyst | Statistical analysis (Python + Read only) | No |
-| futures-analyst | Leverage strategies | No |
+| Agent | Phase | Purpose | Trading? |
+|-------|-------|---------|----------|
+| news-analyst | 0 (FIRST) | News preprocessing to CSV | No |
+| market-intelligence | 1 | Sentiment & FOMO/FUD (Perplexity) | No |
+| btc-researcher | 2 | Bitcoin analysis | No |
+| eth-researcher | 2 | Ethereum ecosystem | No |
+| altcoin-researcher | 2 | Alternative opportunities | No |
+| technical-analyst | 2 | Chart analysis | No |
+| risk-manager | 2 | Portfolio risk (account tools only) | No |
+| data-analyst | 2 | Statistical analysis (Python + Read only) | No |
+| futures-analyst | 2 | Leverage strategies | No |
+| critic | 3 (LAST) | Devil's advocate review | No |
 
-Subagents are defined in `create_subagent_definitions()` (~line 284) with `AgentDefinition` objects specifying allowed tools.
+Subagents are defined in `create_subagent_definitions()` (~line 295) with `AgentDefinition` objects specifying allowed tools.
 
 ### MCP Servers
 Three external MCP servers required (configured via environment variables):

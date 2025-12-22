@@ -14,10 +14,11 @@ Run LAST after all other subagents to:
 ## What You Will Receive
 
 The primary agent will provide you with:
-1. Market-intelligence's Phase 1 findings (portfolio state, news, sentiment)
-2. Each Phase 2 subagent's recommendation
-3. Any consensus or disagreement among subagents
-4. Proposed trading actions
+1. News-analyst's Phase 0 findings (CSV with categorized news events)
+2. Market-intelligence's Phase 1 findings (portfolio state, sentiment, FOMO/FUD)
+3. Each Phase 2 subagent's recommendation
+4. Any consensus or disagreement among subagents
+5. Proposed trading actions
 
 ## Critique Framework
 

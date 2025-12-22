@@ -273,6 +273,7 @@ def load_subagent_prompts():
         "btc-researcher": "btc_researcher.md",
         "eth-researcher": "eth_researcher.md",
         "altcoin-researcher": "altcoin_researcher.md",
+        "news-analyst": "news_analyst.md",
         "market-intelligence": "market_intelligence.md",
         "technical-analyst": "technical_analyst.md",
         "risk-manager": "risk_manager.md",
@@ -400,10 +401,30 @@ def create_subagent_definitions(config: dict):
             model=model_name
         )
 
-    # Market Intelligence - Phase 1: Runs FIRST, provides context for all other subagents
+    # News Analyst - Phase 0: Runs FIRST, processes all news into CSV for other subagents
+    if "news-analyst" in prompts:
+        agents["news-analyst"] = AgentDefinition(
+            description="News analyst. MUST be called FIRST (Phase 0) in every session. Reads all Polygon news and generates a structured CSV summary of significant events. Reduces token load on primary agent by pre-processing news.",
+            prompt=prompts["news-analyst"],
+            tools=[
+                # Polygon news - primary function
+                "mcp__polygon__polygon_news",
+                # Portfolio context
+                "mcp__binance__binance_get_account",
+                "mcp__binance__binance_portfolio_performance",
+                "mcp__binance__binance_get_ticker",
+                "mcp__binance__binance_get_price",
+                "mcp__binance__binance_py_eval",
+                "mcp__ide__executeCode",
+                "Read"
+            ],
+            model=model_name
+        )
+
+    # Market Intelligence - Phase 1: Runs SECOND (after news-analyst), provides sentiment context
     if "market-intelligence" in prompts:
         agents["market-intelligence"] = AgentDefinition(
-            description="Market intelligence analyst. MUST be called FIRST in every session. Gathers portfolio state, trading notes, and news to provide initial context for all other subagents. Also detects FOMO/FUD extremes.",
+            description="Market intelligence analyst. Runs SECOND (Phase 1) after news-analyst. Uses news-analyst CSV output for sentiment analysis. Detects FOMO/FUD extremes and gathers portfolio context for other subagents.",
             prompt=prompts["market-intelligence"],
             tools=[
                 # Perplexity tools for sentiment research
@@ -412,9 +433,7 @@ def create_subagent_definitions(config: dict):
                 "mcp__perplexity__perplexity_sonar_reasoning",
                 "mcp__perplexity__perplexity_sonar_reasoning_pro",
                 "mcp__perplexity__perplexity_sonar_deep_research",
-                # Polygon news
-                "mcp__polygon__polygon_news",
-                # Phase 1 context gathering - portfolio and notes
+                # Phase 1 context gathering - portfolio and notes (NO polygon_news - uses news-analyst CSV)
                 "mcp__binance__binance_get_account",
                 "mcp__binance__binance_trading_notes",
                 "mcp__binance__binance_portfolio_performance",
