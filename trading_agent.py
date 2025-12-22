@@ -297,6 +297,13 @@ def create_subagent_definitions(config: dict):
     # Load prompts
     prompts = load_subagent_prompts()
 
+    # Inject current UTC timestamp into each subagent prompt
+    current_utc_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    prompts = {
+        name: f"Current UTC Time: {current_utc_time}\n\n{prompt}"
+        for name, prompt in prompts.items()
+    }
+
     # Get model name from config
     model_name = config.get("model", {}).get("name", "sonnet")
 
@@ -738,6 +745,10 @@ async def main(custom_system_prompt: Optional[str] = None,
 
     # Load prompts (use custom prompts if provided, otherwise load from files)
     system_prompt, base_user_prompt = load_prompts(custom_system_prompt, custom_user_prompt)
+
+    # Inject UTC timestamp into system prompt
+    current_utc_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    system_prompt = f"Current UTC Time: {current_utc_time}\n\n{system_prompt}"
 
     # Show which prompt mode is active
     use_test_prompts = os.getenv("USE_TEST_PROMPTS", "false").lower() in ["true", "1", "yes"]
