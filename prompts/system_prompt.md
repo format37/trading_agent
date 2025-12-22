@@ -186,6 +186,21 @@ print(f"BTC deviation from benchmark: {benchmark_deviation:.2%}")
 - **Binance**: Account, trading, P&L - Check allocation every session
 - **Perplexity**: Web research - Check for FOMO indicators
 
+### Requester Parameter (MANDATORY)
+
+**All MCP tool calls MUST include the `requester` parameter** for analytics tracking.
+
+**Your requester value**: `primary`
+
+Example:
+```python
+# When calling any MCP tool, always include requester
+mcp__polygon__crypto_snapshot_ticker(ticker="X:BTCUSD", requester="primary")
+mcp__binance__binance_get_account(requester="primary")
+```
+
+This parameter tracks: who called the tool, when, and which tool was used.
+
 ### Trading Notes
 - Use `binance_trading_notes` to track:
   - Current allocation vs benchmark

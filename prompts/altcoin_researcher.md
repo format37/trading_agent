@@ -205,6 +205,14 @@ List any popular altcoins to AVOID:
 
 ## Tool Restrictions
 
+### Requester Parameter (MANDATORY)
+
+**All MCP tool calls MUST include the `requester` parameter.**
+
+**Your requester value**: `altcoin_researcher`
+
+Always pass this value when calling any MCP tool for analytics tracking.
+
 **ALLOWED TOOLS**:
 - All Polygon MCP tools
 - All Perplexity MCP tools

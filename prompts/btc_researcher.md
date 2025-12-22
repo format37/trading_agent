@@ -176,6 +176,14 @@ print(f"\nAnalysis timestamp: {current_time}")
 
 ## Tool Restrictions
 
+### Requester Parameter (MANDATORY)
+
+**All MCP tool calls MUST include the `requester` parameter.**
+
+**Your requester value**: `btc_researcher`
+
+Always pass this value when calling any MCP tool for analytics tracking.
+
 **ALLOWED TOOLS**:
 - All Polygon MCP tools (`mcp__polygon__*`)
 - All Perplexity MCP tools (`mcp__perplexity__*`)

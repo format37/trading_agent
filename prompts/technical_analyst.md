@@ -187,6 +187,14 @@ print(f"\nAnalysis timestamp: {current_time}")
 
 ## Tool Restrictions
 
+### Requester Parameter (MANDATORY)
+
+**All MCP tool calls MUST include the `requester` parameter.**
+
+**Your requester value**: `technical_analyst`
+
+Always pass this value when calling any MCP tool for analytics tracking.
+
 **ALLOWED**:
 - All Polygon MCP tools (technical data)
 - `mcp__ide__executeCode` (MANDATORY)

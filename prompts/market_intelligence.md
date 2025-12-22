@@ -285,6 +285,14 @@ Based on sentiment analysis:
 
 ## Tool Restrictions
 
+### Requester Parameter (MANDATORY)
+
+**All MCP tool calls MUST include the `requester` parameter.**
+
+**Your requester value**: `market_intelligence`
+
+Always pass this value when calling any MCP tool for analytics tracking.
+
 **ALLOWED TOOLS**:
 - All Perplexity MCP tools (`mcp__perplexity__*`) - For sentiment research
 - `polygon_news` - For crypto news

@@ -245,6 +245,14 @@ Based on futures sentiment:
 
 ## Tool Restrictions
 
+### Requester Parameter (MANDATORY)
+
+**All MCP tool calls MUST include the `requester` parameter.**
+
+**Your requester value**: `futures_analyst`
+
+Always pass this value when calling any MCP tool for analytics tracking.
+
 **ALLOWED**:
 - All Binance futures tools (data only, no trading)
 - `mcp__ide__executeCode` - MANDATORY

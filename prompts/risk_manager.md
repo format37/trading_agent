@@ -209,6 +209,14 @@ For new trades:
 
 ## Tool Restrictions
 
+### Requester Parameter (MANDATORY)
+
+**All MCP tool calls MUST include the `requester` parameter.**
+
+**Your requester value**: `risk_manager`
+
+Always pass this value when calling any MCP tool for analytics tracking.
+
 **ALLOWED TOOLS**:
 - `binance_get_account`, `binance_get_open_orders`, `binance_spot_trade_history`
 - `binance_get_pnl`, `binance_get_aggregates`

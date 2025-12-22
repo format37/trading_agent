@@ -227,6 +227,14 @@ print(f"Critique timestamp: {current_time}")
 
 ## Tool Restrictions
 
+### Requester Parameter (MANDATORY)
+
+**All MCP tool calls MUST include the `requester` parameter.**
+
+**Your requester value**: `critic`
+
+Always pass this value when calling any MCP tool for analytics tracking.
+
 **ALLOWED TOOLS**:
 - `mcp__perplexity__perplexity_sonar` - Quick fact-checks
 - `mcp__perplexity__perplexity_sonar_pro` - Deeper verification

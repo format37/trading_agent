@@ -255,6 +255,14 @@ print(f"\nAnalysis timestamp: {current_time}")
 
 ## Tool Restrictions
 
+### Requester Parameter (MANDATORY)
+
+**All MCP tool calls MUST include the `requester` parameter.**
+
+**Your requester value**: `data_analyst`
+
+Always pass this value when calling any MCP tool for analytics tracking.
+
 **ALLOWED**:
 - All Binance data tools (account, history, klines)
 - `mcp__ide__executeCode` - MANDATORY
