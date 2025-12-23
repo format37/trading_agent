@@ -15,8 +15,25 @@ class MCPToolsReport(BaseModel):
     total_tool_calls: int = 0
     unique_requesters: int = 0
     unique_tools: int = 0
+    calls_by_requester: Dict[str, int] = {}
     calls_by_server: Dict[str, int] = {}
     top_tools: List[Dict[str, Any]] = []
+
+
+class WorkflowPhaseResult(BaseModel):
+    """Result from a single workflow phase."""
+    phase: int
+    agent: str
+    recommendation: str
+    confidence: Optional[str] = None
+    details: Optional[str] = None
+
+
+class WorkflowResults(BaseModel):
+    """Complete 5-phase workflow results."""
+    phases: List[WorkflowPhaseResult] = []
+    verdict: Optional[str] = None
+    rationale: List[str] = []
 
 
 class TradingAction(BaseModel):
@@ -46,5 +63,6 @@ class AgentExecutionReport(BaseModel):
     status: str  # "success", "error", "no_action"
     session: TradingSessionResume
     mcp_report: MCPToolsReport
+    workflow_results: WorkflowResults = WorkflowResults()
     trading_actions: List[TradingAction]
     trading_notes: str = ""

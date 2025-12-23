@@ -27,7 +27,9 @@ from models import (
     AgentExecutionReport,
     TradingSessionResume,
     MCPToolsReport,
-    TradingAction
+    TradingAction,
+    WorkflowResults,
+    WorkflowPhaseResult
 )
 
 # Load environment variables from .env file
@@ -46,44 +48,75 @@ def load_config() -> dict:
 
 def parse_reporter_output(agent_text_responses: List[str]) -> MCPToolsReport:
     """
-    Parse the reporter agent's markdown output to extract MCP report data.
+    Parse the reporter agent's output to extract MCP report data.
 
-    The reporter agent outputs a structured markdown report with patterns like:
-    - **Total Tool Calls**: X
-    - **Unique Requesters**: Y
-    - CSV file path: data/mcp-binance/session_report_*.csv
+    Strategy 1: Look for structured JSON block (preferred)
+    Strategy 2: Fall back to regex parsing for legacy format
     """
     report = MCPToolsReport()
 
     for response in agent_text_responses:
-        # Look for reporter output markers
-        if "Session Tool Usage Report" in response or "session_report_" in response or "Tool Usage" in response:
-            lines = response.split('\n')
+        # Strategy 1: Look for structured JSON block
+        json_match = re.search(r'```json\s*(\{[^`]+\})\s*```', response, re.DOTALL)
+        if json_match:
+            try:
+                data = json.loads(json_match.group(1))
+                report.csv_path = data.get("csv_path")
+                report.total_tool_calls = data.get("total_tool_calls", 0)
+                report.unique_requesters = data.get("unique_requesters", 0)
+                report.unique_tools = data.get("unique_tools", 0)
+                report.calls_by_requester = data.get("calls_by_requester", {})
+                report.calls_by_server = data.get("calls_by_server", {})
+                report.top_tools = data.get("top_tools", [])
+                return report  # Found structured data, return immediately
+            except json.JSONDecodeError:
+                pass  # Fall through to regex parsing
 
-            for line in lines:
-                # Extract total tool calls
-                if "Total Tool Calls" in line or "Total tool calls" in line or "total_tool_calls" in line:
-                    match = re.search(r'(\d+)', line)
-                    if match:
-                        report.total_tool_calls = int(match.group(1))
+        # Strategy 2: Fallback regex parsing for legacy format
+        if "TOOL USAGE REPORT" in response or "Tool Usage" in response or "session_report_" in response:
+            # Parse TOTAL TOOL CALLS (handle uppercase format)
+            match = re.search(r'TOTAL\s+TOOL\s+CALLS[:\s]*(\d+)', response, re.IGNORECASE)
+            if match:
+                report.total_tool_calls = int(match.group(1))
 
-                # Extract unique requesters
-                if "Unique Requesters" in line or "Unique requesters" in line or "unique_requesters" in line:
-                    match = re.search(r'(\d+)', line)
+            # Parse calls by requester from "TOOL CALLS BY REQUESTER" section
+            requester_section = re.search(
+                r'TOOL\s+CALLS\s+BY\s+REQUESTER[:\s]*\n[-=]+\n((?:\s*\S+\s+\d+\s+calls?\s*\n?)+)',
+                response, re.IGNORECASE
+            )
+            if requester_section:
+                requester_lines = requester_section.group(1).strip().split('\n')
+                for line in requester_lines:
+                    match = re.match(r'\s*(\S+)\s+(\d+)\s+calls?', line.strip())
                     if match:
-                        report.unique_requesters = int(match.group(1))
+                        requester = match.group(1)
+                        calls = int(match.group(2))
+                        report.calls_by_requester[requester] = calls
 
-                # Extract unique tools
-                if "Unique Tools" in line or "Unique tools" in line or "unique_tools" in line:
-                    match = re.search(r'(\d+)', line)
-                    if match:
-                        report.unique_tools = int(match.group(1))
+            if report.calls_by_requester:
+                report.unique_requesters = len(report.calls_by_requester)
 
-                # Extract CSV path
-                if "session_report_" in line and ".csv" in line:
-                    match = re.search(r'([\w/\-\.]+session_report_[\w\-\.]+\.csv)', line)
+            # Parse top tools from "TOP TOOLS USED" section
+            top_tools_section = re.search(
+                r'TOP\s+TOOLS\s+USED[:\s]*\n[-=]+\n((?:\s*\S+\s+\d+\s+calls?\s*\n?)+)',
+                response, re.IGNORECASE
+            )
+            if top_tools_section:
+                tool_lines = top_tools_section.group(1).strip().split('\n')
+                for line in tool_lines:
+                    match = re.match(r'\s*(\S+)\s+(\d+)\s+calls?', line.strip())
                     if match:
-                        report.csv_path = match.group(1)
+                        tool_name = match.group(1)
+                        calls = int(match.group(2))
+                        report.top_tools.append({"name": tool_name, "calls": calls})
+
+            if report.top_tools:
+                report.unique_tools = len(set(t["name"] for t in report.top_tools))
+
+            # Extract CSV path
+            csv_match = re.search(r'([\w/\-\.]+session_report_[\w\-\.]+\.csv)', response)
+            if csv_match:
+                report.csv_path = csv_match.group(1)
 
     return report
 
@@ -132,6 +165,107 @@ def extract_subagents_used(agent_text_responses: List[str]) -> List[str]:
                 used.add(name)
 
     return sorted(list(used))
+
+
+def extract_key_decisions(agent_text_responses: List[str]) -> List[str]:
+    """
+    Extract key trading decisions from agent responses.
+
+    Looks for patterns like:
+    - "VERDICT: CONTINUE FREEZE"
+    - "Decision: REBALANCE"
+    - "STRONGLY AGREE with 95% confidence"
+    """
+    decisions = []
+
+    for response in agent_text_responses:
+        # Pattern 1: VERDICT lines (most common format)
+        verdict_match = re.search(r'\*\*VERDICT:\s*(.+?)\*\*', response)
+        if verdict_match:
+            verdict = verdict_match.group(1).strip()
+            # Clean up emoji and extra formatting
+            verdict = re.sub(r'\s*[✅❌🎯⚡]\s*', '', verdict).strip()
+            if verdict and verdict not in decisions:
+                decisions.append(verdict)
+
+        # Pattern 2: Plain VERDICT without markdown
+        verdict_plain = re.search(r'VERDICT:\s*([A-Z][A-Z\s]+?)(?:\s*[✅❌]|\n|$)', response)
+        if verdict_plain:
+            verdict = verdict_plain.group(1).strip()
+            if verdict and verdict not in decisions:
+                decisions.append(verdict)
+
+        # Pattern 3: APPROVE/REJECT from risk-manager
+        approve_match = re.search(r'\*\*(?:VERDICT|Status)\*\*:\s*(APPROVE|REJECT|APPROVE WITH CONDITIONS)', response, re.IGNORECASE)
+        if approve_match:
+            decision = approve_match.group(1).strip().upper()
+            if decision and decision not in decisions:
+                decisions.append(decision)
+
+        # Pattern 4: STRONGLY AGREE/DISAGREE from critic
+        agree_match = re.search(r'STRONGLY\s+(AGREE|DISAGREE)(?:[^\d]*(\d+%)[^c]*confidence)?', response, re.IGNORECASE)
+        if agree_match:
+            decision = f"STRONGLY {agree_match.group(1).upper()}"
+            if agree_match.group(2):
+                decision += f" ({agree_match.group(2)} confidence)"
+            if decision not in decisions:
+                decisions.append(decision)
+
+    return decisions[:5]  # Limit to top 5 decisions
+
+
+def extract_workflow_results(agent_text_responses: List[str]) -> WorkflowResults:
+    """
+    Extract 5-phase workflow results from agent responses.
+
+    Parses markdown tables like:
+    | Phase | Agent | Recommendation | Confidence |
+    |-------|-------|----------------|------------|
+    | **0** | News Analyst | Balanced sentiment (51% bullish) | - |
+    """
+    workflow = WorkflowResults()
+
+    for response in agent_text_responses:
+        # Look for workflow results section
+        if "5-Phase Workflow Results" in response or "Workflow Results" in response:
+            # Parse the markdown table - match rows with phase numbers
+            # Pattern: | **0** | News Analyst | Balanced sentiment | - |
+            table_pattern = r'\|\s*\*?\*?(\d+)\*?\*?\s*\|\s*([^|]+)\s*\|\s*([^|]+)\s*\|\s*([^|]+)\s*\|'
+            matches = re.findall(table_pattern, response)
+
+            for match in matches:
+                phase_num = int(match[0])
+                agent = match[1].strip()
+                recommendation = match[2].strip()
+                confidence = match[3].strip()
+
+                # Skip header row or separator rows
+                if agent.lower() in ['agent', '------', '---', '']:
+                    continue
+                if 'phase' in agent.lower():
+                    continue
+
+                phase_result = WorkflowPhaseResult(
+                    phase=phase_num,
+                    agent=agent,
+                    recommendation=recommendation,
+                    confidence=confidence if confidence != '-' else None
+                )
+                workflow.phases.append(phase_result)
+
+        # Extract final verdict
+        verdict_match = re.search(r'VERDICT:\s*([A-Z][A-Z\s]+?)(?:\s*[✅❌]|\n|$)', response)
+        if verdict_match and not workflow.verdict:
+            workflow.verdict = verdict_match.group(1).strip()
+
+        # Extract rationale (numbered list after "Rationale:")
+        rationale_match = re.search(r'\*\*Rationale:\*\*\s*\n((?:\d+\..+\n?)+)', response)
+        if rationale_match:
+            rationale_text = rationale_match.group(1)
+            rationale_items = re.findall(r'\d+\.\s*(.+)', rationale_text)
+            workflow.rationale = [item.strip() for item in rationale_items]
+
+    return workflow
 
 
 # ============================================================================
@@ -1078,6 +1212,12 @@ async def main(custom_system_prompt: Optional[str] = None,
     # Extract subagents used from responses
     subagents_used = extract_subagents_used(agent_text_responses)
 
+    # Extract key decisions from responses
+    key_decisions = extract_key_decisions(agent_text_responses)
+
+    # Extract workflow results from responses
+    workflow_results = extract_workflow_results(agent_text_responses)
+
     # Build session resume
     session_resume = TradingSessionResume(
         session_id=session_id,
@@ -1086,7 +1226,7 @@ async def main(custom_system_prompt: Optional[str] = None,
         duration_seconds=duration_seconds,
         trades_executed=len(trading_actions),
         subagents_used=subagents_used,
-        key_decisions=[],  # Can be enhanced to parse from responses
+        key_decisions=key_decisions,
         market_conditions=None
     )
 
@@ -1104,6 +1244,7 @@ async def main(custom_system_prompt: Optional[str] = None,
         status=status,
         session=session_resume,
         mcp_report=mcp_report,
+        workflow_results=workflow_results,
         trading_actions=trading_actions,
         trading_notes=trading_notes_combined
     )

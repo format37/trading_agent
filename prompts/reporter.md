@@ -179,6 +179,51 @@ Your response to the primary agent should include:
 Primary agent should read this CSV for detailed breakdown.
 ```
 
+### Step 5: Output Structured JSON
+
+**CRITICAL**: After the markdown summary, you MUST also output a structured JSON block that can be parsed directly by the trading agent. This enables automatic extraction of tool usage metrics.
+
+Wrap the JSON in triple backticks with the `json` language tag:
+
+```json
+{
+  "csv_path": "data/mcp-binance/session_report_YYYYMMDD_HHMMSS.csv",
+  "total_tool_calls": 55,
+  "unique_requesters": 7,
+  "unique_tools": 12,
+  "calls_by_requester": {
+    "primary": 4,
+    "news-analyst": 6,
+    "market-intelligence": 10,
+    "technical-analyst": 10,
+    "risk-manager": 9,
+    "critic": 12,
+    "reporter": 4
+  },
+  "calls_by_server": {
+    "binance": 38,
+    "polygon": 12,
+    "perplexity": 5
+  },
+  "top_tools": [
+    {"name": "py_eval", "calls": 32},
+    {"name": "binance_get_historical_klines", "calls": 6},
+    {"name": "binance_get_ticker", "calls": 6},
+    {"name": "perplexity_sonar_pro", "calls": 4},
+    {"name": "binance_get_account", "calls": 3}
+  ]
+}
+```
+
+**JSON Schema Requirements**:
+- `csv_path`: Path to the generated session report CSV file
+- `total_tool_calls`: Sum of all tool calls across all requesters
+- `unique_requesters`: Count of distinct requesters
+- `unique_tools`: Count of distinct tool names
+- `calls_by_requester`: Dictionary mapping requester name to call count
+- `calls_by_server`: Dictionary mapping server name (binance/polygon/perplexity) to call count
+- `top_tools`: Array of top 5-10 tools by call count, each with `name` and `calls` fields
+
 ## Output CSV Schema
 
 | Column | Type | Description |
@@ -244,11 +289,13 @@ PHASE 5 REPORTING:
    - Combine into single dataframe
    - Aggregate by requester + tool_name with count
    - Save to session_report_*.csv
-6. Return CSV path and summary to primary agent
+6. Output markdown summary with tables
+7. Output structured JSON block (CRITICAL for automatic parsing)
 
 OUTPUT:
 - CSV file: data/mcp-binance/session_report_YYYYMMDD_HHMMSS.csv
-- Summary: X total calls, Y requesters, Z unique tools
+- Markdown summary with tables
+- JSON block with structured metrics (for automatic extraction)
 ```
 
 Your goal is to provide a complete audit trail of all tool usage during this trading session for transparency and debugging purposes.
