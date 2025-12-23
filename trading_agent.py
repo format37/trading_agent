@@ -673,18 +673,14 @@ def load_prompts(custom_system_prompt: Optional[str] = None,
     if custom_system_prompt:
         system_prompt = custom_system_prompt
     else:
-        use_test_prompts = os.getenv("USE_TEST_PROMPTS", "false").lower() in ["true", "1", "yes"]
-        system_prompt_file = "test_system_prompt.md" if use_test_prompts else "system_prompt.md"
-        with open(system_prompt_file, "r") as f:
+        with open("system_prompt.md", "r") as f:
             system_prompt = f.read()
 
     # User prompt
     if custom_user_prompt:
         user_prompt = custom_user_prompt
     else:
-        use_test_prompts = os.getenv("USE_TEST_PROMPTS", "false").lower() in ["true", "1", "yes"]
-        user_prompt_file = "test_user_prompt.md" if use_test_prompts else "user_prompt.md"
-        with open(user_prompt_file, "r") as f:
+        with open("user_prompt.md", "r") as f:
             user_prompt = f.read()
 
     return system_prompt, user_prompt
@@ -790,17 +786,11 @@ async def main(custom_system_prompt: Optional[str] = None,
     current_utc_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     system_prompt = f"Current UTC Time: {current_utc_time}\n\n{system_prompt}"
 
-    # Show which prompt mode is active
-    use_test_prompts = os.getenv("USE_TEST_PROMPTS", "false").lower() in ["true", "1", "yes"]
+    # Show if custom prompts are provided via API
     if custom_system_prompt:
         print("🔧 Using custom system prompt from API\n")
-    elif use_test_prompts:
-        print("🧪 Using TEST system prompt (USE_TEST_PROMPTS=true)\n")
-
     if custom_user_prompt:
         print("🔧 Using custom user prompt from API\n")
-    elif use_test_prompts:
-        print("🧪 Using TEST user prompt (USE_TEST_PROMPTS=true)\n")
 
     # Load model configuration
     config = load_config()

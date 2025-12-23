@@ -1,1 +1,0 @@
-This is a test run. You should not trade. Please, check the current portfolio.

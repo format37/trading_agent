@@ -17,9 +17,6 @@ AI-powered cryptocurrency trading system using Claude SDK and Model Context Prot
 # Development - direct execution
 python trading_agent.py
 
-# Development - with test prompts
-USE_TEST_PROMPTS=true python trading_agent.py
-
 # Interactive mode
 python trading_agent.py --interactive
 
@@ -47,7 +44,7 @@ curl -X POST http://localhost:8012/action \
 ### Core Files
 - `trading_agent.py` - Main orchestration using Claude SDK with ClaudeSDKClient
 - `api.py` - FastAPI REST server with token-based auth, exposes /health and /action endpoints
-- `prompts/` - 15 prompt files (system, user, test variants, and 11 subagent prompts)
+- `prompts/` - 13 prompt files (system, user, and 11 subagent prompts)
 
 ### Subagent System
 Eleven specialized subagents run in a 5-phase workflow with restricted tool access:
@@ -92,7 +89,6 @@ STRICT_MCP_CHECK=true          # Fail-fast if MCP servers unreachable
 AGENT_TIMEOUT_SECONDS=600      # 10 minute timeout
 AGENT_REQUIRE_AUTH=true        # Enable token auth
 AGENT_TOKENS=token1,token2     # Comma-separated allowed tokens
-USE_TEST_PROMPTS=false         # Use test prompts instead of production
 ```
 
 ## Code Conventions
