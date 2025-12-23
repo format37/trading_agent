@@ -17,8 +17,6 @@ services:
     volumes:
       # Shared data folder for CSV files from MCP tools
       - /home/ubuntu/mcp/data:/app/data
-      # Trading agent specific logs and reports
-      - /home/ubuntu/mcp/data/trading_agent:/app/data/trading_agent
       # Claude CLI credentials (persists authentication)
       - /home/ubuntu/.claude:/home/appuser/.claude
     environment:
