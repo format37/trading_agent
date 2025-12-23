@@ -3,7 +3,7 @@
 # ============================================================================
 
 # Core agent dependencies
-claude-agent-sdk==0.1.9
+claude-agent-sdk==0.1.18
 
 # FastAPI web framework
 fastapi>=0.104.0
