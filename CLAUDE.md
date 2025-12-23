@@ -121,8 +121,12 @@ from datetime import datetime, timezone
 current_time = datetime.now(timezone.utc)
 ```
 
-### Telemetry
-Telemetry is disabled by default (`ENABLE_TELEMETRY=False`). No-op implementations are used when disabled.
+### Structured Outputs
+The agent returns structured `AgentExecutionReport` containing:
+- `session`: Session ID, timestamps, duration, trades executed, subagents used
+- `mcp_report`: MCP tools usage from reporter agent (CSV path, call counts)
+- `trading_actions`: List of trading tool calls with details
+- `trading_notes`: Combined text responses
 
 ## Docker
 

@@ -299,7 +299,7 @@ async def trigger_action(action_request: ActionRequest):
             logger.info(f"Agent execution completed in {duration_seconds:.2f} seconds")
             logger.info("=" * 80)
 
-            # Build response with backward compatibility
+            # Build response with structured output
             response_data = {
                 "status": "success",
                 "message": "Trading agent executed successfully",
@@ -308,27 +308,19 @@ async def trigger_action(action_request: ActionRequest):
                 "event_data": event_data
             }
 
-            # Add new trading data fields if available
+            # The agent now returns a structured AgentExecutionReport as dict
             if agent_result and isinstance(agent_result, dict):
-                response_data["trading_notes"] = agent_result.get("trading_notes", "")
-                response_data["actions"] = agent_result.get("actions", [])
-                response_data["agents"] = agent_result.get("agents", {})
+                # Include the full structured report
+                response_data["report"] = agent_result
 
-                # Include session report path if available
-                if agent_result.get("session_report_path"):
-                    response_data["session_report"] = agent_result["session_report_path"]
-                    logger.info(f"Session report: {agent_result['session_report_path']}")
-            else:
-                # Fallback: Try to read session report the old way
-                try:
-                    log_dir = Path("data/trading_agent")
-                    report_files = sorted(log_dir.glob("session_*.md"), reverse=True)
-                    if report_files:
-                        latest_report = report_files[0]
-                        response_data["session_report"] = str(latest_report)
-                        logger.info(f"Session report: {latest_report}")
-                except Exception as e:
-                    logger.warning(f"Could not read session report: {e}")
+                # Log summary info
+                session_info = agent_result.get("session", {})
+                mcp_report = agent_result.get("mcp_report", {})
+                logger.info(f"Session ID: {session_info.get('session_id', 'N/A')}")
+                logger.info(f"Trades executed: {session_info.get('trades_executed', 0)}")
+                logger.info(f"Subagents used: {len(session_info.get('subagents_used', []))}")
+                if mcp_report.get("csv_path"):
+                    logger.info(f"MCP Report: {mcp_report['csv_path']}")
 
             return response_data
 

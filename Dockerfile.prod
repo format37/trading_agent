@@ -27,11 +27,9 @@ RUN pip install --no-cache-dir -r requirements-prod.txt
 # Copy application code
 COPY api.py .
 COPY trading_agent.py .
+COPY models.py .
 COPY prompts/system_prompt.md .
 COPY prompts/user_prompt.md .
-COPY telemetry.py .
-COPY activity_tracker.py .
-COPY session_reporter.py .
 COPY logger.py .
 COPY config.json .
 

@@ -19,89 +19,16 @@ import json
 import argparse
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List, Dict, Any
+import re
+import uuid
 
-# Telemetry disabled - using no-op implementations
-ENABLE_TELEMETRY = False
-TELEMETRY_AVAILABLE = False
-
-# No-op telemetry classes when telemetry is disabled
-if not TELEMETRY_AVAILABLE:
-    class NoOpActivityTracker:
-        """No-op activity tracker when telemetry is disabled."""
-        def __init__(self):
-            self.end_time = None
-
-        def start_turn(self, turn_count):
-            pass
-
-        def end_turn(self):
-            pass
-
-        def end_session(self):
-            pass
-
-        def record_tool_call(self, tool_name, tool_id, tool_input):
-            pass
-
-        def record_tool_result(self, tool_id, result_summary, is_error):
-            pass
-
-    class NoOpTelemetryManager:
-        """No-op telemetry manager when telemetry is disabled."""
-        def __init__(self, *args, **kwargs):
-            self.enabled = False
-
-        def trace_agent_turn(self, turn_number):
-            from contextlib import contextmanager
-            @contextmanager
-            def _noop():
-                yield None
-            return _noop()
-
-        def trace_thinking(self, thinking_content):
-            pass
-
-        def trace_tool_use(self, tool_name, tool_id, tool_input):
-            pass
-
-        def trace_tool_result(self, tool_id, is_error, result_summary):
-            pass
-
-        def trace_response(self, response_text):
-            pass
-
-        def trace_session_result(self, result_data):
-            pass
-
-        def trace_system_message(self, subtype, data):
-            pass
-
-        def shutdown(self):
-            pass
-
-    class NoOpSessionReporter:
-        """No-op session reporter when telemetry is disabled."""
-        @staticmethod
-        def generate_and_save(activity_tracker):
-            return "session_report_disabled.md"
-
-    class NoOpSessionLogger:
-        """No-op session logger when telemetry is disabled."""
-        def get_log_path(self):
-            return "logging_disabled.log"
-
-        def close(self):
-            pass
-
-    AgentActivityTracker = NoOpActivityTracker
-    SessionReporter = NoOpSessionReporter
-
-    def get_telemetry_manager(*args, **kwargs):
-        return NoOpTelemetryManager()
-
-    def setup_session_logging():
-        return NoOpSessionLogger()
+from models import (
+    AgentExecutionReport,
+    TradingSessionResume,
+    MCPToolsReport,
+    TradingAction
+)
 
 # Load environment variables from .env file
 load_dotenv()
@@ -116,11 +43,96 @@ def load_config() -> dict:
         print(f"Warning: config.json not found, using defaults")
         return {"model": {"name": "sonnet", "effort": ""}}
 
-# Initialize activity tracker (no-op when telemetry disabled)
-activity_tracker = AgentActivityTracker()
 
-# Initialize telemetry manager (no-op when telemetry disabled)
-telemetry = get_telemetry_manager()
+def parse_reporter_output(agent_text_responses: List[str]) -> MCPToolsReport:
+    """
+    Parse the reporter agent's markdown output to extract MCP report data.
+
+    The reporter agent outputs a structured markdown report with patterns like:
+    - **Total Tool Calls**: X
+    - **Unique Requesters**: Y
+    - CSV file path: data/mcp-binance/session_report_*.csv
+    """
+    report = MCPToolsReport()
+
+    for response in agent_text_responses:
+        # Look for reporter output markers
+        if "Session Tool Usage Report" in response or "session_report_" in response or "Tool Usage" in response:
+            lines = response.split('\n')
+
+            for line in lines:
+                # Extract total tool calls
+                if "Total Tool Calls" in line or "Total tool calls" in line or "total_tool_calls" in line:
+                    match = re.search(r'(\d+)', line)
+                    if match:
+                        report.total_tool_calls = int(match.group(1))
+
+                # Extract unique requesters
+                if "Unique Requesters" in line or "Unique requesters" in line or "unique_requesters" in line:
+                    match = re.search(r'(\d+)', line)
+                    if match:
+                        report.unique_requesters = int(match.group(1))
+
+                # Extract unique tools
+                if "Unique Tools" in line or "Unique tools" in line or "unique_tools" in line:
+                    match = re.search(r'(\d+)', line)
+                    if match:
+                        report.unique_tools = int(match.group(1))
+
+                # Extract CSV path
+                if "session_report_" in line and ".csv" in line:
+                    match = re.search(r'([\w/\-\.]+session_report_[\w\-\.]+\.csv)', line)
+                    if match:
+                        report.csv_path = match.group(1)
+
+    return report
+
+
+def extract_trading_actions(agent_text_responses: List[str]) -> List[TradingAction]:
+    """
+    Extract trading actions from agent responses.
+
+    Looks for trading tool calls and their results in the text responses.
+    """
+    trading_actions = []
+    trading_tool_patterns = [
+        "binance_spot_market_order",
+        "binance_spot_limit_order",
+        "binance_spot_oco_order",
+        "binance_cancel_order",
+        "binance_trade_futures_market",
+        "binance_futures_limit_order",
+        "binance_cancel_futures_order"
+    ]
+
+    for response in agent_text_responses:
+        for pattern in trading_tool_patterns:
+            if pattern in response:
+                # Extract basic info about the trade
+                action = TradingAction(
+                    action_type=pattern,
+                    timestamp=datetime.now(timezone.utc).isoformat()
+                )
+                trading_actions.append(action)
+
+    return trading_actions
+
+
+def extract_subagents_used(agent_text_responses: List[str]) -> List[str]:
+    """Extract list of subagents that were used during the session."""
+    subagent_names = [
+        "news-analyst", "market-intelligence", "technical-analyst",
+        "risk-manager", "data-analyst", "futures-analyst", "trader", "reporter"
+    ]
+    used = set()
+
+    for response in agent_text_responses:
+        for name in subagent_names:
+            if name in response.lower():
+                used.add(name)
+
+    return sorted(list(used))
+
 
 # ============================================================================
 # Message Display Helpers
@@ -716,8 +728,9 @@ async def main(custom_system_prompt: Optional[str] = None,
     # Verify MCP connectivity (optional pre-flight check)
     await verify_mcp_connectivity()
 
-    # Telemetry disabled
-    print(f"📝 Telemetry disabled - running without session logging\n")
+    # Session tracking for structured output
+    session_id = str(uuid.uuid4())[:8]
+    session_start = datetime.now(timezone.utc)
 
     # Variables to collect trading data for API response
     agent_text_responses = []  # Collect all TextBlock responses
@@ -887,8 +900,8 @@ async def main(custom_system_prompt: Optional[str] = None,
             await client.query(user_prompt_with_timestamp)
             turn_count = 1
 
-            # Start tracking the first turn
-            activity_tracker.start_turn(turn_count)
+            # Track tool calls for structured output
+            current_tool_calls = {}  # Map tool_id -> tool_name
 
             # Process the initial response
             print(f"\n{'=' * 80}")
@@ -907,26 +920,26 @@ async def main(custom_system_prompt: Optional[str] = None,
                             agent_text_responses.append(block.text)
                         elif isinstance(block, ToolUseBlock):
                             display_tool_use(block)
-                            # Record tool call for action tracking
-                            activity_tracker.record_tool_call(block.name, block.id, getattr(block, 'input', None))
+                            # Track tool call for result matching
+                            current_tool_calls[block.id] = block.name
+                            # Track trading tool calls
+                            if "binance_spot_" in block.name or "binance_trade_futures" in block.name or "binance_futures_" in block.name:
+                                trading_tool_calls.append({
+                                    "tool_name": block.name,
+                                    "tool_id": block.id,
+                                    "input": getattr(block, 'input', {})
+                                })
                         elif isinstance(block, ToolResultBlock):
                             display_tool_result(block)
-                            # Record tool result for action tracking
-                            activity_tracker.record_tool_result(block.tool_use_id, block.content, block.is_error)
                             # Capture binance_trading_notes results
-                            if hasattr(block, 'tool_use_id'):
-                                # Find the corresponding tool call
-                                for turn in activity_tracker.turns:
-                                    for tool_call in turn.tool_calls:
-                                        if tool_call.tool_id == block.tool_use_id and tool_call.tool_name == "mcp__binance__binance_trading_notes":
-                                            if not block.is_error and block.content:
-                                                binance_notes_content.append(str(block.content))
+                            tool_name = current_tool_calls.get(block.tool_use_id, "")
+                            if tool_name == "mcp__binance__binance_trading_notes":
+                                if not block.is_error and block.content:
+                                    binance_notes_content.append(str(block.content))
                 elif isinstance(message, SystemMessage):
                     display_system_message(message)
                 elif isinstance(message, ResultMessage):
                     display_result(message)
-                    # End the current turn when we receive the result
-                    activity_tracker.end_turn()
 
             # Interactive or single-turn mode
             if interactive_mode:
@@ -964,9 +977,6 @@ async def main(custom_system_prompt: Optional[str] = None,
                         # Send user's response to Claude with UTC timestamp
                         turn_count += 1
 
-                        # Start tracking the new turn
-                        activity_tracker.start_turn(turn_count)
-
                         current_utc_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
                         user_input_with_timestamp = f"Current UTC Time: {current_utc_time}\n\n{user_input}"
                         await client.query(user_input_with_timestamp)
@@ -988,26 +998,26 @@ async def main(custom_system_prompt: Optional[str] = None,
                                         agent_text_responses.append(block.text)
                                     elif isinstance(block, ToolUseBlock):
                                         display_tool_use(block)
-                                        # Record tool call for action tracking
-                                        activity_tracker.record_tool_call(block.name, block.id, getattr(block, 'input', None))
+                                        # Track tool call for result matching
+                                        current_tool_calls[block.id] = block.name
+                                        # Track trading tool calls
+                                        if "binance_spot_" in block.name or "binance_trade_futures" in block.name or "binance_futures_" in block.name:
+                                            trading_tool_calls.append({
+                                                "tool_name": block.name,
+                                                "tool_id": block.id,
+                                                "input": getattr(block, 'input', {})
+                                            })
                                     elif isinstance(block, ToolResultBlock):
                                         display_tool_result(block)
-                                        # Record tool result for action tracking
-                                        activity_tracker.record_tool_result(block.tool_use_id, block.content, block.is_error)
                                         # Capture binance_trading_notes results
-                                        if hasattr(block, 'tool_use_id'):
-                                            # Find the corresponding tool call
-                                            for turn in activity_tracker.turns:
-                                                for tool_call in turn.tool_calls:
-                                                    if tool_call.tool_id == block.tool_use_id and tool_call.tool_name == "mcp__binance__binance_trading_notes":
-                                                        if not block.is_error and block.content:
-                                                            binance_notes_content.append(str(block.content))
+                                        tool_name = current_tool_calls.get(block.tool_use_id, "")
+                                        if tool_name == "mcp__binance__binance_trading_notes":
+                                            if not block.is_error and block.content:
+                                                binance_notes_content.append(str(block.content))
                             elif isinstance(message, SystemMessage):
                                 display_system_message(message)
                             elif isinstance(message, ResultMessage):
                                 display_result(message)
-                                # End the current turn when we receive the result
-                                activity_tracker.end_turn()
 
                         print()  # Add spacing after response
 
@@ -1032,19 +1042,13 @@ async def main(custom_system_prompt: Optional[str] = None,
         traceback.print_exc()
         exit_code = 1
 
-    # Generate session report
+    # Generate structured output
     print("\n" + "=" * 80)
-    print("Finalizing session...")
+    print("Generating structured session report...")
     print("=" * 80)
 
-    if activity_tracker and not activity_tracker.end_time:
-        activity_tracker.end_session()
-
-    # Collect trading actions from activity tracker using helper method
-    trading_actions = activity_tracker.get_trading_actions() if hasattr(activity_tracker, 'get_trading_actions') else []
-
-    # Collect agent execution counts
-    agent_counts = activity_tracker.get_agent_execution_counts() if hasattr(activity_tracker, 'get_agent_execution_counts') else {}
+    session_end = datetime.now(timezone.utc)
+    duration_seconds = (session_end - session_start).total_seconds()
 
     # Compile trading notes from agent responses and binance_trading_notes tool
     trading_notes_combined = ""
@@ -1056,8 +1060,53 @@ async def main(custom_system_prompt: Optional[str] = None,
         else:
             trading_notes_combined = "\n".join(binance_notes_content)
 
-    session_report_path = None
-    print("📊 Telemetry disabled - no session report generated")
+    # Parse reporter agent's output for MCP report
+    mcp_report = parse_reporter_output(agent_text_responses)
+
+    # Extract trading actions from captured tool calls
+    trading_actions = [
+        TradingAction(
+            action_type=tc["tool_name"].replace("mcp__binance__", ""),
+            timestamp=datetime.now(timezone.utc).isoformat(),
+            symbol=tc.get("input", {}).get("symbol"),
+            side=tc.get("input", {}).get("side"),
+            details=tc.get("input", {})
+        )
+        for tc in trading_tool_calls
+    ]
+
+    # Extract subagents used from responses
+    subagents_used = extract_subagents_used(agent_text_responses)
+
+    # Build session resume
+    session_resume = TradingSessionResume(
+        session_id=session_id,
+        start_time=session_start.isoformat(),
+        end_time=session_end.isoformat(),
+        duration_seconds=duration_seconds,
+        trades_executed=len(trading_actions),
+        subagents_used=subagents_used,
+        key_decisions=[],  # Can be enhanced to parse from responses
+        market_conditions=None
+    )
+
+    # Determine status
+    if exit_code == 0:
+        status = "success"
+    elif exit_code == 1:
+        status = "error"
+    else:
+        status = "no_action"
+
+    # Build structured report
+    report = AgentExecutionReport(
+        exit_code=exit_code,
+        status=status,
+        session=session_resume,
+        mcp_report=mcp_report,
+        trading_actions=trading_actions,
+        trading_notes=trading_notes_combined
+    )
 
     # Print exit message
     print("\n" + "=" * 80)
@@ -1067,16 +1116,16 @@ async def main(custom_system_prompt: Optional[str] = None,
         print("❌ Trading session completed with errors")
     elif exit_code == 2:
         print("ℹ️  Trading session completed - no action taken")
+    print(f"📊 Session ID: {session_id}")
+    print(f"⏱️  Duration: {duration_seconds:.2f}s")
+    print(f"🔧 Trades executed: {len(trading_actions)}")
+    print(f"🤖 Subagents used: {len(subagents_used)}")
+    if mcp_report.csv_path:
+        print(f"📄 MCP Report: {mcp_report.csv_path}")
     print("=" * 80 + "\n")
 
-    # Return structured data instead of sys.exit() for API usage
-    return {
-        "exit_code": exit_code,
-        "trading_notes": trading_notes_combined,
-        "actions": trading_actions,
-        "agents": agent_counts,
-        "session_report_path": session_report_path
-    }
+    # Return structured report as dict
+    return report.model_dump()
 
 if __name__ == "__main__":
     try:
