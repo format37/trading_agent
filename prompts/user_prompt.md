@@ -4,47 +4,70 @@ Execute systematic trading strategy to outperform the 33% BTC / 33% ETH / 33% US
 
 ## Session Checklist (MANDATORY)
 
-### Phase 1: Context Gathering (DO THIS FIRST)
-- [ ] Call `market-intelligence` for context and sentiment (REQUIRED FIRST)
+### Phase 0: Market Data Collection (FIRST)
+- [ ] Call `news-analyst` FIRST for comprehensive market data
+  - News analysis CSV
+  - Technical indicators CSV (RSI, MACD, EMA, SMA)
+  - Market snapshot CSV
+  - Gainers/losers CSV
+
+### Phase 1: Context Gathering (SECOND)
+- [ ] Call `market-intelligence` for context and sentiment
   - Portfolio state vs benchmark
   - Trading notes review
-  - News and FOMO/FUD analysis
-- [ ] Review Phase 1 recommendations for session priorities
+  - FOMO/FUD analysis using news-analyst output
+  - **Action recommendation with confidence score**
 
-### Phase 2: Parallel Analysis (Based on Phase 1)
-- [ ] Call `risk-manager` for risk assessment (REQUIRED)
-- [ ] Call relevant subagents based on Phase 1:
-  - [ ] `btc-researcher` for Bitcoin analysis (as needed)
-  - [ ] `eth-researcher` for Ethereum analysis (as needed)
-  - [ ] `altcoin-researcher` for alternative opportunities (as needed)
-  - [ ] `technical-analyst` for chart patterns (as needed)
-  - [ ] `data-analyst` for statistical analysis (as needed)
-  - [ ] `futures-analyst` for funding rates (as needed)
+### Phase 2: Parallel Analysis
+Run these subagents IN PARALLEL:
+- [ ] `risk-manager` - **REQUIRED** (has VETO POWER)
+- [ ] `technical-analyst` - Chart patterns, rebalancing signals
+- [ ] `data-analyst` - Statistical analysis, benchmark tracking
+- [ ] `futures-analyst` - Funding rates, sentiment signals
 
-### Phase 3: Critical Review (DO THIS LAST)
-- [ ] Compile Phase 2 recommendations summary
-- [ ] Call `critic` with summary (REQUIRED LAST)
-- [ ] Review critic's challenges and concerns
-- [ ] Consider contrarian viewpoints raised
+Each returns an **Action Recommendation** with:
+- Recommendation type
+- Direction (BUY/SELL/HOLD)
+- Confidence score (X/10)
+- Specific actions
 
-### Phase 4: Synthesis & Decision
-- [ ] Synthesize all subagent outputs
-- [ ] Factor in critic's challenges
-- [ ] Make final trading decision
-- [ ] Execute trades with risk management
-- [ ] Document in trading notes
+### Phase 3: Synthesis & Consensus
+- [ ] Compile recommendations from all subagents
+- [ ] Check risk-manager verdict (APPROVE/REJECT)
+- [ ] **If risk-manager REJECT → NO TRADE (veto power)**
+- [ ] Count aligned recommendations (3/4 majority needed)
+- [ ] Formulate trade instructions (if consensus reached)
 
-### CSV Analysis
+**Consensus Matrix**:
+| Subagent | Recommendation | Direction | Confidence |
+|----------|---------------|-----------|------------|
+| market-intelligence | [rec] | [dir] | [X/10] |
+| technical-analyst | [rec] | [dir] | [X/10] |
+| risk-manager | [APPROVE/REJECT] | [dir] | [X/10] |
+| data-analyst | [rec] | [dir] | [X/10] |
+
+### Phase 4: Trade Execution (IF APPROVED)
+- [ ] Only proceed if: consensus (3/4) + risk-manager APPROVE
+- [ ] Call `trader` with specific trade instructions
+- [ ] Receive execution confirmation
+- [ ] **Skip if no consensus or risk-manager REJECT**
+
+### Phase 5: Session Report (LAST)
+- [ ] Call `reporter` ABSOLUTE LAST
+- [ ] Read session report CSV with py_eval
+- [ ] Include tool usage summary in final response
+
+## CSV Analysis
 - [ ] Use py_eval for EVERY CSV file received
 - [ ] Calculate benchmark performance comparison
 - [ ] Analyze allocation deviation metrics
 
-### Documentation
+## Documentation
 - [ ] Record current vs target allocation
-- [ ] Document rebalancing actions
-- [ ] Note subagent consensus level
-- [ ] Log any FOMO signals detected
-- [ ] Record critic's main concerns
+- [ ] Document consensus level
+- [ ] Log risk-manager verdict
+- [ ] Note any FOMO signals detected
+- [ ] Record trade execution (if any)
 
 ## Rebalancing Status Check
 
@@ -63,32 +86,51 @@ Execute systematic trading strategy to outperform the 33% BTC / 33% ETH / 33% US
 - Days since last rebalancing
 - Tracking error from benchmark
 
-## 3-Phase Workflow Reminder
+## Workflow Summary
 
 ```
-1. market-intelligence (FIRST) → Sets context
-2. risk-manager + others (PARALLEL) → Deep analysis
-3. critic (LAST) → Challenge assumptions
-4. YOU → Synthesize and decide
+Phase 0: news-analyst (FIRST) → Market data CSVs
+         |
+Phase 1: market-intelligence → Context + recommendation
+         |
+Phase 2: [PARALLEL]
+         +-- risk-manager (VETO POWER)
+         +-- technical-analyst
+         +-- data-analyst
+         +-- futures-analyst
+         |
+Phase 3: YOUR SYNTHESIS → Consensus evaluation
+         |
+Phase 4: trader (IF APPROVED) → Execute trades
+         |
+Phase 5: reporter (LAST) → Session report
 ```
+
+## Consensus Rules
+
+- **risk-manager REJECT = NO TRADE** (overrides all)
+- **3/4 agree** = Good consensus, call trader
+- **2/4 agree** = Weak consensus, skip or reduce size
+- **< 2 agree** = No consensus, no trade
 
 ## Anti-FOMO Reminder
 
-Before ANY trade, ask yourself:
+Before approving ANY trade, verify:
 - Am I chasing a pump? → Don't
 - Is this fear or greed? → Default to benchmark
 - Am I deviating too far from 33/33/33? → Rebalance
-- Did the critic raise valid concerns? → Address them
+- Did risk-manager approve? → Required for all trades
+- Is there consensus (3/4)? → Required for all trades
 
-## Authority & Execution
+## Trading Authority
 
-- Full trading authority within rebalancing framework
-- Execute systematically, not emotionally
-- MUST complete all 3 phases before trading
-- Document everything for next session
+**CRITICAL**:
+- You have NO direct trading tools
+- All trades MUST go through `trader` subagent
+- `trader` is ONLY called after consensus + risk-manager APPROVE
 
 ## Session Type
 
-Single-turn autonomous execution with MANDATORY completion of all 3 phases.
+Single-turn autonomous execution with MANDATORY completion of all 5 phases.
 
-Proceed with Phase 1: Call market-intelligence first.
+Proceed with Phase 0: Call news-analyst first.

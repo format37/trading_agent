@@ -270,16 +270,13 @@ def load_subagent_prompts():
 
     # Load each subagent prompt
     subagent_files = {
-        "btc-researcher": "btc_researcher.md",
-        "eth-researcher": "eth_researcher.md",
-        "altcoin-researcher": "altcoin_researcher.md",
         "news-analyst": "news_analyst.md",
         "market-intelligence": "market_intelligence.md",
         "technical-analyst": "technical_analyst.md",
         "risk-manager": "risk_manager.md",
         "data-analyst": "data_analyst.md",
         "futures-analyst": "futures_analyst.md",
-        "critic": "critic.md",
+        "trader": "trader.md",
         "reporter": "reporter.md"
     }
 
@@ -314,104 +311,39 @@ def create_subagent_definitions(config: dict):
     # Define agents with their configurations
     agents = {}
 
-    # BTC Researcher - Parallel asset analysis
-    if "btc-researcher" in prompts:
-        agents["btc-researcher"] = AgentDefinition(
-            description="Bitcoin market analysis specialist. Use for comprehensive BTC analysis when making trading decisions. Provides technical analysis, on-chain metrics, and institutional flow research. Can run in parallel with other researchers.",
-            prompt=prompts["btc-researcher"],
-            tools=[
-                "mcp__polygon__polygon_crypto_snapshot_ticker",
-                "mcp__polygon__polygon_crypto_aggregates",
-                "mcp__polygon__polygon_crypto_gainers_losers",
-                "mcp__polygon__polygon_crypto_rsi",
-                "mcp__polygon__polygon_crypto_macd",
-                "mcp__polygon__polygon_crypto_ema",
-                "mcp__polygon__polygon_crypto_sma",
-                "mcp__polygon__polygon_news",
-                "mcp__perplexity__perplexity_sonar",
-                "mcp__perplexity__perplexity_sonar_pro",
-                "mcp__perplexity__perplexity_sonar_reasoning",
-                "mcp__binance__binance_get_orderbook",
-                "mcp__binance__binance_get_recent_trades",
-                "mcp__binance__binance_get_ticker",
-                "mcp__binance__binance_get_price",
-                "mcp__binance__binance_py_eval",
-                "mcp__binance__binance_save_tool_notes",
-                "mcp__binance__binance_read_tool_notes",
-                "mcp__ide__executeCode",
-                "Read"
-            ],
-            model=model_name
-        )
-
-    # ETH Researcher - Parallel asset analysis
-    if "eth-researcher" in prompts:
-        agents["eth-researcher"] = AgentDefinition(
-            description="Ethereum ecosystem analysis specialist. Use for comprehensive ETH analysis when making trading decisions. Provides ETH technical analysis, DeFi metrics, Layer 2 adoption, and network activity research. Can run in parallel with other researchers.",
-            prompt=prompts["eth-researcher"],
-            tools=[
-                "mcp__polygon__polygon_crypto_snapshot_ticker",
-                "mcp__polygon__polygon_crypto_aggregates",
-                "mcp__polygon__polygon_crypto_gainers_losers",
-                "mcp__polygon__polygon_crypto_rsi",
-                "mcp__polygon__polygon_crypto_macd",
-                "mcp__polygon__polygon_crypto_ema",
-                "mcp__polygon__polygon_crypto_sma",
-                "mcp__polygon__polygon_news",
-                "mcp__perplexity__perplexity_sonar",
-                "mcp__perplexity__perplexity_sonar_pro",
-                "mcp__perplexity__perplexity_sonar_reasoning",
-                "mcp__binance__binance_get_orderbook",
-                "mcp__binance__binance_get_recent_trades",
-                "mcp__binance__binance_get_ticker",
-                "mcp__binance__binance_get_price",
-                "mcp__binance__binance_py_eval",
-                "mcp__binance__binance_save_tool_notes",
-                "mcp__binance__binance_read_tool_notes",
-                "mcp__ide__executeCode",
-                "Read"
-            ],
-            model=model_name
-        )
-
-    # Altcoin Researcher - Opportunity discovery
-    if "altcoin-researcher" in prompts:
-        agents["altcoin-researcher"] = AgentDefinition(
-            description="Altcoin opportunity research specialist. Use when seeking portfolio diversification beyond BTC/ETH or when looking for alternative opportunities. Discovers mid-cap and small-cap cryptocurrencies with sector rotation signals and momentum plays.",
-            prompt=prompts["altcoin-researcher"],
-            tools=[
-                "mcp__polygon__polygon_crypto_snapshot_ticker",
-                "mcp__polygon__polygon_crypto_aggregates",
-                "mcp__polygon__polygon_crypto_gainers_losers",
-                "mcp__polygon__polygon_crypto_rsi",
-                "mcp__polygon__polygon_crypto_macd",
-                "mcp__polygon__polygon_news",
-                "mcp__polygon__polygon_ticker_details",
-                "mcp__perplexity__perplexity_sonar",
-                "mcp__perplexity__perplexity_sonar_pro",
-                "mcp__perplexity__perplexity_sonar_reasoning",
-                "mcp__binance__binance_get_orderbook",
-                "mcp__binance__binance_get_recent_trades",
-                "mcp__binance__binance_get_ticker",
-                "mcp__binance__binance_get_price",
-                "mcp__binance__binance_get_book_ticker",
-                "mcp__binance__binance_py_eval",
-                "mcp__binance__binance_save_tool_notes",
-                "mcp__binance__binance_read_tool_notes",
-                "mcp__ide__executeCode",
-                "Read"
-            ],
-            model=model_name
-        )
-
-    # News Analyst - Phase 0: Runs FIRST, processes all news into CSV for other subagents
+    # News Analyst - Phase 0: Runs FIRST, comprehensive market data collection with ALL Polygon tools
     if "news-analyst" in prompts:
         agents["news-analyst"] = AgentDefinition(
-            description="News analyst. MUST be called FIRST (Phase 0) in every session. Reads all Polygon news and generates a structured CSV summary of significant events. Reduces token load on primary agent by pre-processing news.",
+            description="News analyst. MUST be called FIRST (Phase 0) in every session. Collects comprehensive market data from ALL 22 Polygon tools. Generates structured CSVs for news, indicators, snapshots, and movers.",
             prompt=prompts["news-analyst"],
             tools=[
-                # Polygon news - primary function
+                # Polygon - News & Reference Data
                 "mcp__polygon__polygon_news",
+                "mcp__polygon__polygon_ticker_details",
+                "mcp__polygon__polygon_market_holidays",
+                "mcp__polygon__polygon_market_status",
+                # Polygon - Real-Time Price Data
+                "mcp__polygon__polygon_crypto_last_trade",
+                "mcp__polygon__polygon_crypto_snapshot_ticker",
+                "mcp__polygon__polygon_crypto_snapshot_book",
+                "mcp__polygon__polygon_crypto_snapshots",
+                "mcp__polygon__polygon_crypto_gainers_losers",
+                # Polygon - Historical OHLCV Data
+                "mcp__polygon__polygon_crypto_aggregates",
+                "mcp__polygon__polygon_crypto_previous_close",
+                "mcp__polygon__polygon_crypto_daily_open_close",
+                "mcp__polygon__polygon_crypto_grouped_daily",
+                "mcp__polygon__polygon_crypto_trades",
+                "mcp__polygon__polygon_price_data",
+                # Polygon - Technical Indicators
+                "mcp__polygon__polygon_crypto_rsi",
+                "mcp__polygon__polygon_crypto_ema",
+                "mcp__polygon__polygon_crypto_macd",
+                "mcp__polygon__polygon_crypto_sma",
+                # Polygon - Reference Data
+                "mcp__polygon__polygon_crypto_tickers",
+                "mcp__polygon__polygon_crypto_exchanges",
+                "mcp__polygon__polygon_crypto_conditions",
                 # Portfolio context
                 "mcp__binance__binance_get_account",
                 "mcp__binance__binance_portfolio_performance",
@@ -474,10 +406,10 @@ def create_subagent_definitions(config: dict):
             model=model_name
         )
 
-    # Risk Manager - Portfolio risk assessment
+    # Risk Manager - Portfolio risk assessment with VETO POWER
     if "risk-manager" in prompts:
         agents["risk-manager"] = AgentDefinition(
-            description="Portfolio risk manager. Use BEFORE executing trades to validate position sizing and AFTER trades to assess portfolio health. Calculates risk metrics and ensures risk management compliance. Read-only analyst with no trading authority.",
+            description="Portfolio risk manager with VETO POWER. REQUIRED for all trading decisions. Issues APPROVE or REJECT verdict - REJECT overrides all other consensus. Validates position sizing and portfolio health. Read-only analyst with no trading authority.",
             prompt=prompts["risk-manager"],
             tools=[
                 "mcp__binance__binance_get_account",
@@ -516,49 +448,62 @@ def create_subagent_definitions(config: dict):
             model=model_name
         )
 
-    # Futures Analyst - Leverage and futures trading specialist
+    # Futures Analyst - Phase 2: Futures data analysis and recommendations (NO trading authority)
     if "futures-analyst" in prompts:
         agents["futures-analyst"] = AgentDefinition(
-            description="Futures trading analyst. Use when considering leveraged positions or futures opportunities. Analyzes funding rates, liquidation risk, basis spreads, and recommends safe leverage levels. Emphasizes risk management for leveraged trading.",
+            description="Futures market analyst. Runs in Phase 2 parallel analysis. Analyzes funding rates, open interest, liquidation data, and basis spreads. Provides recommendations only - NO trading execution authority. All trades executed by trader subagent.",
             prompt=prompts["futures-analyst"],
             tools=[
+                # Futures market data (read-only)
+                "mcp__binance__binance_get_futures_open_orders",
+                "mcp__binance__binance_get_futures_balances",
+                "mcp__binance__binance_get_futures_trade_history",
+                "mcp__binance__binance_calculate_liquidation_risk",
+                # Market data
                 "mcp__binance__binance_get_ticker",
                 "mcp__binance__binance_get_orderbook",
                 "mcp__binance__binance_get_price",
                 "mcp__binance__binance_get_account",
-                "mcp__binance__binance_get_futures_balances",
-                "mcp__binance__binance_trade_futures_market",
-                "mcp__binance__binance_futures_limit_order",
-                "mcp__binance__binance_get_futures_open_orders",
-                "mcp__binance__binance_cancel_futures_order",
-                "mcp__binance__binance_get_futures_trade_history",
-                "mcp__binance__binance_set_futures_leverage",
-                "mcp__binance__binance_manage_futures_positions",
-                "mcp__binance__binance_calculate_liquidation_risk",
+                # Polygon data
+                "mcp__polygon__polygon_crypto_snapshot_ticker",
+                "mcp__polygon__polygon_crypto_aggregates",
+                # Analysis tools
                 "mcp__binance__binance_py_eval",
                 "mcp__binance__binance_save_tool_notes",
                 "mcp__binance__binance_read_tool_notes",
-                "mcp__polygon__polygon_crypto_snapshot_ticker",
-                "mcp__polygon__polygon_crypto_aggregates",
                 "mcp__ide__executeCode",
                 "Read"
             ],
             model=model_name
         )
 
-    # Critic - Phase 3: Runs after Phase 2, reviews all other subagent recommendations
-    if "critic" in prompts:
-        agents["critic"] = AgentDefinition(
-            description="Devil's advocate and risk critic. Runs in Phase 3 after all analysis subagents. Reviews all subagent recommendations, identifies flaws, challenges assumptions, and highlights overlooked risks. Does NOT provide trading recommendations.",
-            prompt=prompts["critic"],
+    # Trader - Phase 4: ONLY agent with trading execution authority
+    if "trader" in prompts:
+        agents["trader"] = AgentDefinition(
+            description="Trade execution specialist. ONLY agent with trading authority. Called in Phase 4 ONLY after primary agent evaluates consensus (3/4 majority) and risk-manager approval. Receives specific trade instructions and executes spot and futures orders.",
+            prompt=prompts["trader"],
             tools=[
-                # Perplexity for fact-checking claims
-                "mcp__perplexity__perplexity_sonar",
-                "mcp__perplexity__perplexity_sonar_pro",
-                "mcp__perplexity__perplexity_sonar_reasoning",
+                # Spot trading tools
+                "mcp__binance__binance_spot_market_order",
+                "mcp__binance__binance_spot_limit_order",
+                "mcp__binance__binance_spot_oco_order",
+                "mcp__binance__binance_cancel_order",
+                # Futures trading tools
+                "mcp__binance__binance_trade_futures_market",
+                "mcp__binance__binance_futures_limit_order",
+                "mcp__binance__binance_cancel_futures_order",
+                "mcp__binance__binance_set_futures_leverage",
+                "mcp__binance__binance_manage_futures_positions",
+                # Context tools (for verification)
+                "mcp__binance__binance_get_account",
+                "mcp__binance__binance_get_open_orders",
+                "mcp__binance__binance_get_futures_open_orders",
+                "mcp__binance__binance_get_ticker",
+                "mcp__binance__binance_get_price",
+                "mcp__binance__binance_trading_notes",
                 # Analysis tools
-                "mcp__ide__executeCode",
                 "mcp__binance__binance_py_eval",
+                "mcp__ide__executeCode",
                 "Read"
             ],
             model=model_name
@@ -875,21 +820,11 @@ async def main(custom_system_prompt: Optional[str] = None,
             "mcp__binance__binance_get_p2p_history",
             "mcp__binance__binance_get_historical_klines",
 
-            # Binance MCP - Spot Trading
-            "mcp__binance__binance_spot_market_order",
-            "mcp__binance__binance_spot_limit_order",
-            "mcp__binance__binance_spot_oco_order",
-            "mcp__binance__binance_cancel_order",
-
-            # Binance MCP - Futures Trading
+            # Binance MCP - Futures Data (read-only, NO trading tools)
+            # NOTE: All trading execution removed - trades go through trader subagent
             "mcp__binance__binance_get_futures_balances",
-            "mcp__binance__binance_trade_futures_market",
-            "mcp__binance__binance_futures_limit_order",
             "mcp__binance__binance_get_futures_open_orders",
-            "mcp__binance__binance_cancel_futures_order",
             "mcp__binance__binance_get_futures_trade_history",
-            "mcp__binance__binance_set_futures_leverage",
-            "mcp__binance__binance_manage_futures_positions",
             "mcp__binance__binance_calculate_liquidation_risk",
 
             # Binance MCP - Analysis & Risk Management

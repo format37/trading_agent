@@ -27,39 +27,47 @@ rsi_value = df['value'].iloc[-1]
 # Combine with orderbook analysis for trading decision
 ```
 
-### 2. Specialized Subagent System with 3-Phase Workflow
+### 2. Specialized Subagent System with 5-Phase Workflow
 
-Nine domain-expert subagents with restricted tool access orchestrated in a structured 3-phase workflow for systematic analysis.
+Eight domain-expert subagents orchestrated in a structured 5-phase workflow with consensus-based trading decisions.
 
-**3-Phase Sequential Workflow:**
+**5-Phase Sequential Workflow:**
 ```
-Phase 1: market-intelligence (FIRST - context gathering)
+Phase 0: news-analyst (FIRST - comprehensive market data)
          ↓
-Phase 2: risk-manager + other subagents (PARALLEL)
+Phase 1: market-intelligence (sentiment + FOMO/FUD detection)
          ↓
-Phase 3: critic (LAST - challenges assumptions)
+Phase 2: [PARALLEL] technical-analyst + risk-manager + data-analyst + futures-analyst
          ↓
-Phase 4: Primary agent synthesis and decision
+Phase 3: Primary agent synthesis (evaluate 3/4 consensus + risk-manager veto)
+         ↓
+Phase 4: trader (ONLY if consensus + risk-manager APPROVE)
+         ↓
+Phase 5: reporter (session tool usage report)
 ```
 
 | Subagent | Phase | Focus Area | Can Trade? | Key Tools |
 |----------|-------|------------|------------|-----------|
-| **market-intelligence** | 1 (FIRST) | Context, news, FOMO/FUD | ❌ | Perplexity, news, account, notes |
-| **btc-researcher** | 2 | Bitcoin deep analysis | ❌ | Polygon, Perplexity, Binance data |
-| **eth-researcher** | 2 | Ethereum ecosystem | ❌ | Polygon, Perplexity, DeFi metrics |
-| **altcoin-researcher** | 2 | Opportunity discovery | ❌ | Gainers/losers, news, sentiment |
-| **technical-analyst** | 2 | Pure chart analysis | ❌ | Indicators, orderbook, klines |
-| **risk-manager** | 2 (REQ) | Portfolio risk | ❌ | **Only** account/risk tools |
-| **data-analyst** | 2 | Statistical analysis | ❌ | **Only** Python + Read |
-| **futures-analyst** | 2 | Leverage strategies | ❌ | Futures data, liquidation calc |
-| **critic** | 3 (LAST) | Devil's advocate | ❌ | Perplexity (fact-check), Python |
+| **news-analyst** | 0 (FIRST) | Market data collection | ❌ | All 22 Polygon tools |
+| **market-intelligence** | 1 | Sentiment, FOMO/FUD | ❌ | Perplexity, news CSV analysis |
+| **technical-analyst** | 2 | Chart patterns, signals | ❌ | Indicators, orderbook, klines |
+| **risk-manager** | 2 | Portfolio risk, **VETO POWER** | ❌ | Account/risk tools |
+| **data-analyst** | 2 | Statistical analysis | ❌ | Python + Read only |
+| **futures-analyst** | 2 | Futures sentiment | ❌ | Futures data (read-only) |
+| **trader** | 4 | **Trade execution** | ✅ | All spot + futures trading |
+| **reporter** | 5 (LAST) | Session audit | ❌ | Request logs, py_eval |
+
+**Consensus Mechanism:**
+- **3/4 majority required** - At least 3 of 4 analysis subagents must agree on direction
+- **Risk-manager VETO** - REJECT overrides all consensus, no trade proceeds
+- **Trader isolation** - ONLY agent with trading tools, called only after approval
 
 **Benefits:**
-- **Structured workflow** - Context first, analysis second, critique last
+- **Structured workflow** - Data first, analysis second, execution gated by consensus
 - **Parallel execution** - Phase 2 subagents run simultaneously
-- **Built-in skepticism** - Critic challenges all recommendations before trading
+- **Trading authority separation** - Only trader subagent can execute trades
+- **Built-in risk control** - Risk-manager veto prevents reckless trades
 - **Token efficiency** - Specialized contexts vs bloated main context
-- **Enforced focus** - Read-only analysts can't accidentally trade
 
 ### 3. n8n Event-Driven Architecture
 
