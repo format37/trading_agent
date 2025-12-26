@@ -36,14 +36,56 @@ from models import (
 load_dotenv()
 
 def load_config() -> dict:
-    """Load model configuration from config.json."""
+    """Load configuration from config.json with defaults for risk management."""
     config_path = os.path.join(os.path.dirname(__file__), "config.json")
+
+    # Default configuration including risk management parameters
+    defaults = {
+        "model": {"name": "sonnet", "effort": ""},
+        "risk_parameters": {
+            "min_risk_exposure_pct": 20,
+            "max_risk_exposure_pct": 80,
+            "target_risk_exposure_pct": 66,
+            "max_single_position_pct": 40,
+            "min_single_position_pct": 10,
+            "force_deploy_after_days": 3,
+            "force_deploy_threshold_pct": 50
+        },
+        "trading_parameters": {
+            "min_trade_size_usd": 50,
+            "max_trade_size_pct": 25,
+            "rebalance_deviation_trigger_pct": 10,
+            "stop_loss_default_pct": 5,
+            "take_profit_targets_pct": [10, 20, 30]
+        },
+        "consensus_parameters": {
+            "required_majority": 0.6,
+            "risk_manager_veto_enabled": True,
+            "risk_manager_veto_override_threshold": 0.8,
+            "weak_consensus_trade_size_multiplier": 0.5
+        },
+        "yield_parameters": {
+            "min_expected_yield_pct": 2,
+            "risk_reward_min_ratio": 1.5,
+            "opportunity_cost_weight": 0.3
+        }
+    }
+
     try:
         with open(config_path, "r") as f:
-            return json.load(f)
+            config = json.load(f)
+        # Merge with defaults (config values override defaults)
+        for key, value in defaults.items():
+            if key not in config:
+                config[key] = value
+            elif isinstance(value, dict):
+                for subkey, subvalue in value.items():
+                    if subkey not in config[key]:
+                        config[key][subkey] = subvalue
+        return config
     except FileNotFoundError:
         print(f"Warning: config.json not found, using defaults")
-        return {"model": {"name": "sonnet", "effort": ""}}
+        return defaults
 
 
 def parse_reporter_output(agent_text_responses: List[str]) -> MCPToolsReport:
@@ -562,17 +604,57 @@ def load_subagent_prompts():
 
     return prompts
 
+def build_config_context(config: dict) -> str:
+    """Build a formatted config context string for prompt injection."""
+    risk_params = config.get("risk_parameters", {})
+    trading_params = config.get("trading_parameters", {})
+    consensus_params = config.get("consensus_parameters", {})
+    yield_params = config.get("yield_parameters", {})
+
+    return f"""## Active Configuration Parameters
+
+### Risk Parameters
+- Minimum Risk Exposure: {risk_params.get('min_risk_exposure_pct', 20)}%
+- Maximum Risk Exposure: {risk_params.get('max_risk_exposure_pct', 80)}%
+- Target Risk Exposure: {risk_params.get('target_risk_exposure_pct', 66)}%
+- Max Single Position: {risk_params.get('max_single_position_pct', 40)}%
+- Min Single Position: {risk_params.get('min_single_position_pct', 10)}%
+- Force Deploy After Days: {risk_params.get('force_deploy_after_days', 3)}
+- Force Deploy Threshold: {risk_params.get('force_deploy_threshold_pct', 50)}%
+
+### Trading Parameters
+- Min Trade Size: ${trading_params.get('min_trade_size_usd', 50)}
+- Max Trade Size: {trading_params.get('max_trade_size_pct', 25)}%
+- Rebalance Deviation Trigger: {trading_params.get('rebalance_deviation_trigger_pct', 10)}%
+- Default Stop Loss: {trading_params.get('stop_loss_default_pct', 5)}%
+- Take Profit Targets: {trading_params.get('take_profit_targets_pct', [10, 20, 30])}%
+
+### Consensus Parameters
+- Required Majority: {int(consensus_params.get('required_majority', 0.6) * 100)}%
+- Veto Override Threshold: {int(consensus_params.get('risk_manager_veto_override_threshold', 0.8) * 100)}%
+- Weak Consensus Multiplier: {consensus_params.get('weak_consensus_trade_size_multiplier', 0.5)}
+
+### Yield Parameters
+- Min Expected Yield: {yield_params.get('min_expected_yield_pct', 2)}%
+- Risk-Reward Min Ratio: {yield_params.get('risk_reward_min_ratio', 1.5)}
+- Opportunity Cost Weight: {yield_params.get('opportunity_cost_weight', 0.3)}
+
+"""
+
+
 def create_subagent_definitions(config: dict):
     """Create AgentDefinition objects for all subagents."""
     # Load prompts
     prompts = load_subagent_prompts()
 
-    # Inject session start time and current UTC timestamp into each subagent prompt
+    # Inject session start time, UTC timestamp, and config parameters into each subagent prompt
     # Session start time is used by reporter to query request logs
     session_start_time = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
     current_utc_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    config_context = build_config_context(config)
+
     prompts = {
-        name: f"Session Start Time: {session_start_time}\nCurrent UTC Time: {current_utc_time}\n\n{prompt}"
+        name: f"Session Start Time: {session_start_time}\nCurrent UTC Time: {current_utc_time}\n\n{config_context}{prompt}"
         for name, prompt in prompts.items()
     }
 
@@ -1024,22 +1106,23 @@ async def main(custom_system_prompt: Optional[str] = None,
     binance_notes_content = []  # Collect binance_trading_notes tool outputs
     trading_tool_calls = []  # Collect trading-specific tool calls
 
+    # Load model configuration (must load before prompt injection)
+    config = load_config()
+    model_config = config.get("model", {})
+
     # Load prompts (use custom prompts if provided, otherwise load from files)
     system_prompt, base_user_prompt = load_prompts(custom_system_prompt, custom_user_prompt)
 
-    # Inject UTC timestamp into system prompt
+    # Inject UTC timestamp and config context into system prompt
     current_utc_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-    system_prompt = f"Current UTC Time: {current_utc_time}\n\n{system_prompt}"
+    config_context = build_config_context(config)
+    system_prompt = f"Current UTC Time: {current_utc_time}\n\n{config_context}{system_prompt}"
 
     # Show if custom prompts are provided via API
     if custom_system_prompt:
         print("🔧 Using custom system prompt from API\n")
     if custom_user_prompt:
         print("🔧 Using custom user prompt from API\n")
-
-    # Load model configuration
-    config = load_config()
-    model_config = config.get("model", {})
     print(f"📋 Model configuration: {model_config.get('name', 'sonnet')}")
     if model_config.get("effort"):
         print(f"   Effort level: {model_config.get('effort')}")

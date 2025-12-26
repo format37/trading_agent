@@ -36,6 +36,119 @@ The primary agent may provide specific context:
 
 ## Core Analysis Framework
 
+### 0. Portfolio Exposure Analytics (MANDATORY for every session)
+
+**CRITICAL**: Calculate exposure metrics FIRST in every session.
+
+```python
+def calculate_exposure_metrics(account_df, config):
+    """
+    Calculate risk exposure and determine exposure state.
+    MANDATORY: Run this FIRST in every session.
+    """
+    total_value = account_df['usdt_value'].sum()
+
+    btc_value = account_df[account_df['asset'] == 'BTC']['usdt_value'].sum()
+    eth_value = account_df[account_df['asset'] == 'ETH']['usdt_value'].sum()
+    usdt_value = account_df[account_df['asset'].isin(['USDT', 'USDC'])]['usdt_value'].sum()
+
+    btc_pct = (btc_value / total_value) * 100
+    eth_pct = (eth_value / total_value) * 100
+    usdt_pct = (usdt_value / total_value) * 100
+
+    # Risk exposure = BTC + ETH allocation
+    risk_exposure = btc_pct + eth_pct
+
+    # Get thresholds from config (injected at session start)
+    min_exposure = config.get('min_risk_exposure_pct', 20)
+    max_exposure = config.get('max_risk_exposure_pct', 80)
+    target_exposure = config.get('target_risk_exposure_pct', 66)
+    force_deploy_threshold = config.get('force_deploy_threshold_pct', 50)
+
+    # Determine exposure state
+    if risk_exposure < min_exposure:
+        exposure_state = "UNDER-EXPOSED"
+        session_mode = "MUST_DEPLOY"
+    elif risk_exposure > max_exposure:
+        exposure_state = "OVER-EXPOSED"
+        session_mode = "DEFENSIVE"
+    else:
+        exposure_state = "WITHIN_RANGE"
+        session_mode = "STANDARD"
+
+    # Calculate exposure gap
+    exposure_gap = target_exposure - risk_exposure
+
+    # Check forced deployment trigger
+    force_deploy_triggered = usdt_pct > force_deploy_threshold
+
+    print("📊 EXPOSURE ANALYSIS:")
+    print(f"Risk Exposure: {risk_exposure:.1f}% (Target: {target_exposure}%)")
+    print(f"Exposure Gap: {exposure_gap:+.1f}%")
+    print(f"Exposure State: {exposure_state}")
+    print(f"Session Mode: {session_mode}")
+    print(f"USDT %: {usdt_pct:.1f}% (Force Deploy Threshold: {force_deploy_threshold}%)")
+    print(f"Force Deploy Triggered: {force_deploy_triggered}")
+
+    if exposure_state == "UNDER-EXPOSED":
+        recommended_deployment = (min_exposure - risk_exposure) / 100 * total_value
+        print(f"🚨 UNDER-EXPOSED: Deploy ${recommended_deployment:.2f} to reach minimum")
+
+    return {
+        'risk_exposure_pct': risk_exposure,
+        'exposure_gap_pct': exposure_gap,
+        'exposure_state': exposure_state,
+        'session_mode': session_mode,
+        'force_deploy_triggered': force_deploy_triggered,
+        'usdt_pct': usdt_pct
+    }
+```
+
+### Benchmark Drag Analysis
+
+When portfolio is under-exposed, calculate the performance cost:
+
+```python
+def calculate_benchmark_drag(portfolio_history_df, btc_prices_df, eth_prices_df, days=30):
+    """
+    Calculate performance loss from being under-exposed to benchmark.
+    """
+    # Get actual average exposure over period
+    actual_avg_exposure = portfolio_history_df['risk_exposure_pct'].mean() / 100
+    target_exposure = 0.66  # 33% BTC + 33% ETH
+
+    exposure_gap = target_exposure - actual_avg_exposure
+
+    # Calculate benchmark return over period
+    btc_return = (btc_prices_df['close'].iloc[-1] / btc_prices_df['close'].iloc[0]) - 1
+    eth_return = (eth_prices_df['close'].iloc[-1] / eth_prices_df['close'].iloc[0]) - 1
+    benchmark_avg_return = (btc_return + eth_return) / 2
+
+    # Drag = missed return from under-exposure
+    drag_pct = exposure_gap * benchmark_avg_return * 100
+    portfolio_value = portfolio_history_df['total_value'].iloc[-1]
+    drag_usd = portfolio_value * (exposure_gap * benchmark_avg_return)
+    annualized_drag = drag_pct * (365 / days)
+
+    print("\n📉 BENCHMARK DRAG ANALYSIS:")
+    print(f"Period: {days} days")
+    print(f"Average Exposure Gap: {exposure_gap*100:.1f}%")
+    print(f"Benchmark Return: {benchmark_avg_return*100:.2f}%")
+    print(f"Benchmark Drag: {drag_pct:.2f}%")
+    print(f"Estimated USD Loss: ${drag_usd:.2f}")
+    print(f"Annualized Drag: {annualized_drag:.2f}%")
+
+    if drag_pct > 0:
+        print(f"⚠️ Under-exposure cost portfolio {drag_pct:.2f}% over {days} days")
+
+    return {
+        'drag_pct': drag_pct,
+        'drag_usd': drag_usd,
+        'annualized_drag': annualized_drag,
+        'exposure_gap': exposure_gap * 100
+    }
+```
+
 ### 1. Benchmark Comparison Analysis
 
 **MANDATORY CALCULATIONS**:
@@ -308,7 +421,21 @@ Always pass this value when calling any MCP tool for analytics tracking.
 ```markdown
 ## Action Recommendation
 
-**Recommendation**: [REBALANCE / HOLD / REDUCE / INCREASE]
+**Exposure Analysis** (MANDATORY):
+- Current Risk Exposure: [X]%
+- Target Exposure: [X]% (from config)
+- Exposure Gap: [+/-X]%
+- Exposure State: [UNDER-EXPOSED / WITHIN_RANGE / OVER-EXPOSED]
+- Force Deploy Triggered: [Yes/No]
+- Recommended Deployment: $[X] (if under-exposed)
+
+**Benchmark Drag** (if under-exposed):
+- Period Analyzed: [X] days
+- Drag Percentage: [X]%
+- Estimated Drag USD: $[X]
+- Annualized Drag: [X]%
+
+**Recommendation**: [REBALANCE / HOLD / REDUCE / INCREASE / DEPLOY]
 
 **Direction**: [BUY / SELL / HOLD] [Asset(s)]
 

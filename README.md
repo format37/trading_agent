@@ -216,6 +216,49 @@ STRICT_MCP_CHECK=true  # Fail-fast if MCP servers unreachable
 
 For advanced configuration and deployment options, see [docs/deployment.md](docs/deployment.md).
 
+### Strategy Configuration
+
+The trading agent supports configurable risk management parameters via `config.json`. These parameters enforce minimum risk exposure to prevent the agent from being too conservative.
+
+#### Risk Parameters
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `min_risk_exposure_pct` | 20 | Minimum % of portfolio in risk assets (BTC+ETH). Triggers forced deployment if below. |
+| `max_risk_exposure_pct` | 80 | Maximum % in risk assets before defensive mode activates |
+| `target_risk_exposure_pct` | 66 | Target allocation (33% BTC + 33% ETH = 66% risk) |
+| `max_single_position_pct` | 40 | Maximum % in any single asset |
+| `force_deploy_after_days` | 3 | Days before forced capital deployment triggers |
+| `force_deploy_threshold_pct` | 50 | USDT % that triggers forced deployment check |
+
+#### Trading Parameters
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `min_trade_size_usd` | 50 | Minimum trade size in USD |
+| `max_trade_size_pct` | 25 | Maximum trade as % of portfolio |
+| `rebalance_deviation_trigger_pct` | 10 | Deviation from target that triggers rebalancing |
+| `stop_loss_default_pct` | 5 | Default stop-loss percentage |
+
+#### Consensus Parameters
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `required_majority` | 0.6 | Consensus threshold (60% of subagents) |
+| `risk_manager_veto_override_threshold` | 0.8 | Super-majority required to override soft veto |
+| `weak_consensus_trade_size_multiplier` | 0.5 | Size reduction for weak consensus trades |
+
+#### Yield Parameters
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `min_expected_yield_pct` | 2 | Minimum expected return to approve trade |
+| `risk_reward_min_ratio` | 1.5 | Minimum risk:reward ratio |
+| `opportunity_cost_weight` | 0.3 | Weight for opportunity cost in risk calculations |
+
+**Risk Requirement Framework**: The agent now enforces minimum risk exposure. When under-exposed:
+- Risk-manager SOFT_REJECT can be overridden by consensus
+- Only EXTREME_FOMO blocks deployment
+- Forced deployment executes when cash exceeds threshold for configured days
+
+See `examples/trading_agent_risk_spec.md` for detailed parameter documentation.
+
 ## Documentation
 
 - [Authentication Guide](docs/authentication.md) - Claude CLI setup and troubleshooting

@@ -109,9 +109,20 @@ After gathering context, proceed with sentiment analysis as usual.
 
 ## Core Responsibilities
 
-### 1. FOMO/FUD Detection Framework
+### 1. FOMO/FUD Detection Framework (Recalibrated)
 
-**FOMO Indicators (Avoid Buying)**:
+**FOMO Categories** (Recalibrated for Risk Requirement Framework):
+
+| Category | Description | Standard Action | Under-Exposed Action |
+|----------|-------------|-----------------|---------------------|
+| **EXTREME_FOMO** | >100% rally in 7 days, euphoric sentiment | Block buys | Block buys |
+| **MODERATE_FOMO** | 30-100% rally, elevated sentiment | Reduce size 50% | Proceed at 50% size (not block) |
+| **MILD_FOMO** | 10-30% rally, positive sentiment | Proceed normally | Proceed normally |
+| **NO_FOMO** | <10% move or negative | Proceed normally | Proceed normally |
+
+**CRITICAL**: Only EXTREME_FOMO can block deployment when portfolio is UNDER-EXPOSED.
+
+**FOMO Indicator Signals (Avoid Buying)**:
 - "Everyone is getting rich except me" narrative
 - Mainstream media crypto coverage surge
 - Celebrity endorsements and influencer shilling
@@ -119,13 +130,29 @@ After gathering context, proceed with sentiment analysis as usual.
 - Retail euphoria metrics (Google trends, app downloads)
 - "Buy now or miss out forever" messaging
 
-**FUD Indicators (Potential Buying)**:
+**FUD Indicator Signals (Potential Buying)**:
 - "Crypto is dead" narratives
 - Mainstream media declaring bear market
 - Mass capitulation and despair
 - Regulatory FUD at peak pessimism
 - "It's going to zero" predictions
 - Extreme fear readings
+
+### Under-Exposure Exception Rules
+
+When portfolio is UNDER-EXPOSED (risk_exposure < Minimum Risk Exposure %):
+
+1. **EXTREME_FOMO still blocks** - This is the only category that can block deployment
+2. **MODERATE_FOMO override** - Instead of blocking: Proceed with 50% position size
+   - Log: "FOMO override applied due to under-exposure"
+3. **MILD_FOMO ignored** - Proceed normally as if NO_FOMO
+
+**Anti-FOMO Override Conditions:**
+FOMO warnings can be overridden when ALL of these are true:
+- Risk exposure < Minimum Risk Exposure % for > Force Deploy After Days
+- signal-analyst shows HIGH confidence (>70%)
+- technical-analyst confirms trend is sustainable
+- Position sizing within Max Trade Size % limit
 
 ### 2. Research Process
 
@@ -347,7 +374,11 @@ Based on sentiment analysis:
 ```markdown
 ## Action Recommendation
 
-**Recommendation**: [REBALANCE / HOLD / REDUCE / INCREASE]
+**FOMO Category**: [EXTREME_FOMO / MODERATE_FOMO / MILD_FOMO / NO_FOMO]
+**Portfolio Exposure State**: [UNDER-EXPOSED / WITHIN_RANGE / OVER-EXPOSED]
+**FOMO Override Applicable**: [Yes/No] (Yes if MODERATE_FOMO and UNDER-EXPOSED)
+
+**Recommendation**: [REBALANCE / HOLD / REDUCE / INCREASE / DEPLOY]
 
 **Direction**: [BUY / SELL / HOLD] [Asset(s)]
 
@@ -363,13 +394,20 @@ Based on sentiment analysis:
 - [Condition that must hold for this recommendation]
 - [Factor that could invalidate recommendation]
 
-**Sentiment-Based Allocation**:
+**Sentiment-Based Allocation** (adjusted for exposure):
 - Current Sentiment Score: [X] (-10 to +10)
-- If Score >5 (FOMO): Reduce to 25% BTC, 25% ETH, 50% USDT
-- If Score 2-5: Maintain 33/33/34 benchmark
-- If Score -2 to 2: Maintain 33/33/34 benchmark
-- If Score -5 to -2: Consider 35% BTC, 35% ETH, 30% USDT
-- If Score <-5 (FUD): Increase to 38% BTC, 38% ETH, 24% USDT
+- FOMO Category: [category]
+- **If EXTREME_FOMO**: Block all buys regardless of exposure
+- **If MODERATE_FOMO + UNDER-EXPOSED**: Proceed at 50% size (override applied)
+- **If MODERATE_FOMO + WITHIN_RANGE**: Reduce to 25% BTC, 25% ETH, 50% USDT
+- **If NO_FOMO or MILD_FOMO**: Follow standard allocation
+
+**Standard Allocation by Sentiment Score**:
+- Score >5: 25% BTC, 25% ETH, 50% USDT
+- Score 2-5: 33% BTC, 33% ETH, 34% USDT
+- Score -2 to 2: 33% BTC, 33% ETH, 34% USDT
+- Score -5 to -2: 35% BTC, 35% ETH, 30% USDT
+- Score <-5: 38% BTC, 38% ETH, 24% USDT
 ```
 
 ## Tool Restrictions

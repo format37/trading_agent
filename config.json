@@ -2,5 +2,36 @@
   "model": {
     "name": "claude-opus-4-5",
     "effort": ""
+  },
+  "risk_parameters": {
+    "min_risk_exposure_pct": 20,
+    "max_risk_exposure_pct": 80,
+    "target_risk_exposure_pct": 66,
+    "max_single_position_pct": 40,
+    "min_single_position_pct": 10,
+    "force_deploy_after_days": 3,
+    "force_deploy_threshold_pct": 50
+  },
+  "trading_parameters": {
+    "min_trade_size_usd": 10,
+    "max_trade_size_pct": 25,
+    "rebalance_deviation_trigger_pct": 10,
+    "stop_loss_default_pct": 5,
+    "take_profit_targets_pct": [
+      10,
+      20,
+      30
+    ]
+  },
+  "consensus_parameters": {
+    "required_majority": 0.6,
+    "risk_manager_veto_enabled": true,
+    "risk_manager_veto_override_threshold": 0.8,
+    "weak_consensus_trade_size_multiplier": 0.5
+  },
+  "yield_parameters": {
+    "min_expected_yield_pct": 2,
+    "risk_reward_min_ratio": 1.5,
+    "opportunity_cost_weight": 0.3
   }
 }
