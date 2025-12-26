@@ -62,6 +62,14 @@ Call each request log tool with the session start time:
 #   since_datetime: session_start
 ```
 
+**CalmCrypto:**
+```python
+# Call mcp__calmcrypto__get_request_log
+# Parameters:
+#   requester: "reporter"
+#   since_datetime: session_start
+```
+
 ### Step 3: Combine and Aggregate Data
 
 Use `binance_py_eval` to process all CSV files:
@@ -96,6 +104,13 @@ if os.path.exists(perplexity_log):
     df_perplexity = pd.read_csv(perplexity_log)
     df_perplexity['server'] = 'perplexity'
     dfs.append(df_perplexity)
+
+# Read calmcrypto log
+calmcrypto_log = "PATH_FROM_CALMCRYPTO_GET_REQUEST_LOG"
+if os.path.exists(calmcrypto_log):
+    df_calmcrypto = pd.read_csv(calmcrypto_log)
+    df_calmcrypto['server'] = 'calmcrypto'
+    dfs.append(df_calmcrypto)
 
 # Combine all dataframes
 if dfs:
@@ -197,13 +212,15 @@ Wrap the JSON in triple backticks with the `json` language tag:
     "market-intelligence": 10,
     "technical-analyst": 10,
     "risk-manager": 9,
+    "signal-analyst": 8,
     "critic": 12,
     "reporter": 4
   },
   "calls_by_server": {
     "binance": 38,
     "polygon": 12,
-    "perplexity": 5
+    "perplexity": 5,
+    "calmcrypto": 8
   },
   "top_tools": [
     {"name": "py_eval", "calls": 32},
@@ -246,6 +263,7 @@ Always pass this value when calling any MCP tool for analytics tracking.
 - `mcp__binance__binance_get_request_log` - Binance tool usage
 - `mcp__polygon__polygon_get_request_log` - Polygon tool usage
 - `mcp__perplexity__get_request_log` - Perplexity tool usage
+- `mcp__calmcrypto__get_request_log` - CalmCrypto tool usage
 - `mcp__binance__binance_py_eval` - CSV processing and aggregation
 - `mcp__ide__executeCode` - Python analysis
 - `Read` - Read CSV files
@@ -284,13 +302,14 @@ PHASE 5 REPORTING:
 2. Call binance_get_request_log(requester="reporter", since_datetime=session_start)
 3. Call polygon_get_request_log(requester="reporter", since_datetime=session_start)
 4. Call perplexity_get_request_log(requester="reporter", since_datetime=session_start)
-5. Use binance_py_eval to:
-   - Read all three CSV files
+5. Call calmcrypto_get_request_log(requester="reporter", since_datetime=session_start)
+6. Use binance_py_eval to:
+   - Read all four CSV files
    - Combine into single dataframe
    - Aggregate by requester + tool_name with count
    - Save to session_report_*.csv
-6. Output markdown summary with tables
-7. Output structured JSON block (CRITICAL for automatic parsing)
+7. Output markdown summary with tables
+8. Output structured JSON block (CRITICAL for automatic parsing)
 
 OUTPUT:
 - CSV file: data/mcp-binance/session_report_YYYYMMDD_HHMMSS.csv

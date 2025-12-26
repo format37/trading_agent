@@ -185,7 +185,8 @@ def extract_subagents_used(agent_text_responses: List[str]) -> List[str]:
     """Extract list of subagents that were used during the session."""
     subagent_names = [
         "news-analyst", "market-intelligence", "technical-analyst",
-        "risk-manager", "data-analyst", "futures-analyst", "trader", "reporter"
+        "risk-manager", "data-analyst", "futures-analyst", "signal-analyst",
+        "trader", "reporter"
     ]
     used = set()
 
@@ -263,6 +264,7 @@ def extract_workflow_results(agent_text_responses: List[str]) -> WorkflowResults
         'risk-manager': 2,
         'data-analyst': 2,
         'futures-analyst': 2,
+        'signal-analyst': 2,
         'btc-researcher': 2,
         'eth-researcher': 2,
         'altcoin-researcher': 2,
@@ -544,6 +546,7 @@ def load_subagent_prompts():
         "risk-manager": "risk_manager.md",
         "data-analyst": "data_analyst.md",
         "futures-analyst": "futures_analyst.md",
+        "signal-analyst": "signal_analyst.md",
         "trader": "trader.md",
         "reporter": "reporter.md"
     }
@@ -745,6 +748,32 @@ def create_subagent_definitions(config: dict):
             model=model_name
         )
 
+    # Signal Analyst - Phase 2: CalmCrypto signal analysis with HIGH INFLUENCE
+    if "signal-analyst" in prompts:
+        agents["signal-analyst"] = AgentDefinition(
+            description="Signal analyst with HIGH INFLUENCE. Runs in Phase 2 parallel analysis. Uses CalmCrypto statistically-benchmarked signals. Analyzes prognosis for all held assets (12h/24h), identifies top 3 most predictable assets.",
+            prompt=prompts["signal-analyst"],
+            tools=[
+                # CalmCrypto MCP - ALL signal analysis tools
+                "mcp__calmcrypto__list_assets",
+                "mcp__calmcrypto__signal_eval",
+                "mcp__calmcrypto__predict_price",
+                "mcp__calmcrypto__benchmark_all_assets",
+                "mcp__calmcrypto__py_eval",
+                "mcp__calmcrypto__save_tool_notes",
+                "mcp__calmcrypto__read_tool_notes",
+                # Binance portfolio context (read-only)
+                "mcp__binance__binance_get_account",
+                "mcp__binance__binance_portfolio_performance",
+                "mcp__binance__binance_get_price",
+                # Analysis tools
+                "mcp__binance__binance_py_eval",
+                "mcp__ide__executeCode",
+                "Read"
+            ],
+            model=model_name
+        )
+
     # Trader - Phase 4: ONLY agent with trading execution authority
     if "trader" in prompts:
         agents["trader"] = AgentDefinition(
@@ -787,6 +816,7 @@ def create_subagent_definitions(config: dict):
                 "mcp__binance__binance_get_request_log",
                 "mcp__polygon__polygon_get_request_log",
                 "mcp__perplexity__get_request_log",
+                "mcp__calmcrypto__get_request_log",
                 # Analysis tools for CSV processing
                 "mcp__binance__binance_py_eval",
                 "mcp__ide__executeCode",
@@ -909,7 +939,8 @@ async def verify_mcp_connectivity():
     servers = {
         "Polygon": os.getenv("POLYGON_URL", "http://localhost:8009/polygon/"),
         "Binance": os.getenv("BINANCE_URL", "http://localhost:8010/binance/"),
-        "Perplexity": os.getenv("PERPLEXITY_URL", "http://localhost:8011/perplexity/")
+        "Perplexity": os.getenv("PERPLEXITY_URL", "http://localhost:8011/perplexity/"),
+        "CalmCrypto": os.getenv("CALMCRYPTO_URL", "http://localhost:8007/calmcrypto/")
     }
 
     print("=" * 80)
@@ -1123,6 +1154,10 @@ async def main(custom_system_prompt: Optional[str] = None,
             "perplexity": {
                 "type": "http",
                 "url": os.getenv("PERPLEXITY_URL", "http://localhost:8011/perplexity/")
+            },
+            "calmcrypto": {
+                "type": "http",
+                "url": os.getenv("CALMCRYPTO_URL", "http://localhost:8007/calmcrypto/")
             }
         }
     )

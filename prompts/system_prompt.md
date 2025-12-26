@@ -97,6 +97,9 @@ After Phase 1, run analysis subagents IN PARALLEL:
 - `technical-analyst` - Chart patterns, RSI, MACD rebalancing signals
 - `data-analyst` - Statistical analysis, benchmark tracking
 - `futures-analyst` - Funding rates, sentiment signals (recommendations only)
+- `signal-analyst` - **HIGH INFLUENCE** - CalmCrypto ML-based signals with statistical validation
+
+**WEIGHTING NOTE**: `signal-analyst` recommendations carry HIGH INFLUENCE when confidence is high (>70% probability) because signals are statistically benchmarked.
 
 Each subagent returns an **Action Recommendation** with:
 - Recommendation type (REBALANCE/HOLD/REDUCE/INCREASE)
@@ -191,10 +194,12 @@ Phase 2: [PARALLEL]
          +-- risk-manager (risk + APPROVE/REJECT + VETO POWER)
          +-- data-analyst (stats + recommendation)
          +-- futures-analyst (sentiment + recommendation)
+         +-- signal-analyst (ML signals + recommendation) [HIGH INFLUENCE]
          |
 Phase 3: YOUR SYNTHESIS
          - Evaluate consensus (3/4 majority)
          - Check risk-manager verdict
+         - Weight signal-analyst recommendations higher when confidence >70%
          - Formulate trade instructions (if approved)
          |
 Phase 4: trader (ONLY if consensus + risk-manager APPROVE)
@@ -214,6 +219,7 @@ Phase 5: reporter (ABSOLUTE LAST - session report)
 | `risk-manager` | 2 | Portfolio risk, **VETO POWER** | No |
 | `data-analyst` | 2 | Statistical analysis, benchmark tracking | No |
 | `futures-analyst` | 2 | Futures sentiment, funding rates | No |
+| `signal-analyst` | 2 | **CalmCrypto ML signals (HIGH INFLUENCE)** | No |
 | `trader` | 4 | **ONLY agent with trading tools** | **YES** |
 | `reporter` | 5 | Session tool usage report | No |
 
@@ -302,6 +308,7 @@ print(f"BTC deviation from benchmark: {benchmark_deviation:.2%}")
    - `technical-analyst`
    - `data-analyst`
    - `futures-analyst`
+   - `signal-analyst` (HIGH INFLUENCE - weight recommendations when confidence >70%)
 6. Receive recommendations from each
 
 **Phase 3**:
